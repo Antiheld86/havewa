@@ -96,9 +96,6 @@ BUILD_DIR="${INSTALL_DIR}.new"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR" "$DATA_DIR/storage/documents"
 cp -a "$TMP/src/." "$BUILD_DIR/"
-# The app writes uploads to ./storage; the link keeps them in the data directory, so an update
-# replaces the code without taking the documents with it.
-ln -sfn "$DATA_DIR/storage" "$BUILD_DIR/storage"
 
 (
   cd "$BUILD_DIR"
@@ -106,6 +103,12 @@ ln -sfn "$DATA_DIR/storage" "$BUILD_DIR/storage"
   npx prisma generate >/dev/null
   NODE_ENV=production npm run build >/dev/null
 )
+
+# The app writes uploads to ./storage; the link keeps them in the data directory, so an update
+# replaces the code without taking the documents with it. Linked after the build: the bundler
+# refuses symlinks that point outside the project (#63).
+rm -rf "$BUILD_DIR/storage"
+ln -sfn "$DATA_DIR/storage" "$BUILD_DIR/storage"
 
 id -u havewa >/dev/null 2>&1 || useradd --system --home "$DATA_DIR" --shell /usr/sbin/nologin havewa
 

@@ -4,23 +4,24 @@ import crypto from "node:crypto";
 
 // Lokaler Datei-Speicher. ponytail: lokale Platte reicht; S3/Blob-Adapter,
 // wenn Multi-Node oder Objektspeicher gebraucht wird.
-const BASE = path.join(process.cwd(), "storage", "documents");
+// turbopackIgnore an jedem fs-Aufruf: sonst verfolgt der Build den Ordner und packt alle
+// Uploads ein; zeigt storage per Symlink nach außen (Proxmox), bricht der Build ab (#63).
+const BASE = path.join(/* turbopackIgnore: true */ process.cwd(), "storage", "documents");
+// Path-Traversal verhindern: nur Basename zulassen.
+const file = (key: string) => path.join(/* turbopackIgnore: true */ BASE, path.basename(key));
 
 export async function saveFile(buffer: Buffer, originalName: string): Promise<string> {
-  await fs.mkdir(BASE, { recursive: true });
+  await fs.mkdir(/* turbopackIgnore: true */ BASE, { recursive: true });
   const ext = path.extname(originalName).slice(0, 12);
   const key = `${crypto.randomUUID()}${ext}`;
-  await fs.writeFile(path.join(BASE, key), buffer);
+  await fs.writeFile(/* turbopackIgnore: true */ file(key), buffer);
   return key;
 }
 
 export async function readFile(key: string): Promise<Buffer> {
-  // Path-Traversal verhindern: nur Basename zulassen.
-  const safe = path.basename(key);
-  return fs.readFile(path.join(BASE, safe));
+  return fs.readFile(/* turbopackIgnore: true */ file(key));
 }
 
 export async function deleteFile(key: string): Promise<void> {
-  const safe = path.basename(key);
-  await fs.rm(path.join(BASE, safe), { force: true });
+  await fs.rm(/* turbopackIgnore: true */ file(key), { force: true });
 }
