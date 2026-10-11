@@ -44,6 +44,16 @@ describe("Dezimalzahlen / MEA (#40)", () => {
     expect(unitSchema.safeParse({ ...base, mea: "-1" }).success).toBe(false);
     expect(unitSchema.safeParse({ ...base, mea: "x" }).success).toBe(false);
   });
+  it("Einheit: Fläche und Zimmer mit Komma, ungültige Werte abgelehnt (#33)", () => {
+    const r = unitSchema.parse({ ...base, area: "60,5", rooms: "2,5" });
+    expect(r.area).toBe(60.5);
+    expect(r.rooms).toBe(2.5);
+    expect(unitSchema.parse({ ...base, area: "1.234,5" }).area).toBe(1234.5);
+    expect(unitSchema.parse({ ...base, rooms: "" }).rooms).toBeUndefined();
+    expect(unitSchema.safeParse({ ...base, area: "60m" }).success).toBe(false);
+    expect(unitSchema.safeParse({ ...base, area: "-1" }).success).toBe(false);
+    expect(unitSchema.safeParse({ ...base, rooms: "drei" }).success).toBe(false);
+  });
   it("Eigentümer-Anteil dezimal, 0 < share ≤ 1000", () => {
     expect(ownerSchema.parse({ personId: "p", unitId: "u", share: "333,3333" }).share).toBe(333.3333);
     expect(ownerSchema.safeParse({ personId: "p", unitId: "u", share: "0" }).success).toBe(false);

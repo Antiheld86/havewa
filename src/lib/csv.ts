@@ -9,6 +9,15 @@ export function toCsv(headers: string[], rows: (string | number | null | undefin
   return "﻿" + lines.join("\r\n");
 }
 
+/** Datei-Bytes zu Text: UTF-8, sonst Windows-1252 (so speichert deutsches Excel „CSV“). */
+export function decodeCsv(bytes: ArrayBuffer | Uint8Array): string {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    return new TextDecoder("windows-1252").decode(bytes);
+  }
+}
+
 /**
  * CSV parsen (Semikolon ODER Komma als Trenner, Anführungszeichen, BOM).
  * Liefert Zeilen als String-Arrays; leere Zeilen werden verworfen.

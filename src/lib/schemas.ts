@@ -65,12 +65,11 @@ export const unitSchema = z.object({
   buildingId: z.string().min(1),
   label: z.string().trim().min(1),
   type: z.enum(["WOHNUNG", "GEWERBE", "STELLPLATZ", "KELLER", "SONSTIGES"]),
-  area: z.coerce.number().nonnegative(),
-  rooms: z
+  area: z
     .string()
-    .trim()
-    .optional()
-    .transform((v) => (v ? Number(v) : undefined)),
+    .transform(parseDecimal)
+    .refine((v) => Number.isFinite(v) && v >= 0, "Ungültige Fläche"),
+  rooms: optionalNum.refine((v) => v === undefined || v >= 0, "Ungültige Zimmerzahl"),
   mea: optionalNum
     .refine((v) => v === undefined || v >= 0, "MEA darf nicht negativ sein")
     .transform((v) => (v === undefined ? undefined : round4(v))),

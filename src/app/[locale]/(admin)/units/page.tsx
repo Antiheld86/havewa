@@ -23,7 +23,7 @@ export default async function UnitsPage() {
   const user = await requireUser();
   const t = await getTranslations();
 
-  const [units, customDefs, leaseDefs, persons] = await Promise.all([
+  const [units, customDefs, leaseDefs, persons, properties] = await Promise.all([
     prisma.unit.findMany({
       where: { tenantId: user.tenantId },
       include: {
@@ -53,7 +53,18 @@ export default async function UnitsPage() {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
       select: { id: true, firstName: true, lastName: true },
     }),
+    prisma.property.findMany({
+      where: { tenantId: user.tenantId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, buildings: { select: { id: true, name: true }, orderBy: { createdAt: "asc" } } },
+    }),
   ]);
+  // Auswahl für „Neue Einheit“: jedes Gebäude; Objekte ohne Gebäude bekommen beim Anlegen das Standardgebäude.
+  const buildingOpts = properties.flatMap((p) =>
+    p.buildings.length
+      ? p.buildings.map((b) => ({ value: b.id, label: `${p.name} · ${b.name}` }))
+      : [{ value: `property:${p.id}`, label: `${p.name} · ${t("buildings.defaultName")}` }],
+  );
   const importPresets = (
     await prisma.importPreset.findMany({ where: { tenantId: user.tenantId, entity: "unit" }, orderBy: { createdAt: "asc" } })
   ).map((p) => ({ id: p.id, name: p.name, mapping: p.mapping as Record<string, number> }));
@@ -85,6 +96,7 @@ export default async function UnitsPage() {
             {t("common.exportCsv")}
           </Button>
           <ImportDialog entity="unit" presets={importPresets} />
+          {buildingOpts.length > 0 && <UnitDialog buildings={buildingOpts} customDefs={customDefs} />}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { requireWriter } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
@@ -95,17 +96,34 @@ export async function deleteBuilding(fd: FormData): Promise<void> {
 }
 
 // --- Unit ---
+// buildingId "property:<id>" = Objekt ohne Gebäude: das erste Gebäude nehmen oder das
+// Standardgebäude anlegen, damit Einheiten nicht erst ein Gebäude voraussetzen (#33).
+const PROPERTY_PREFIX = "property:";
+
 export async function createUnit(_p: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireWriter();
   const entries = Object.fromEntries(fd);
   const r = unitSchema.safeParse(entries);
   if (!r.success) return fail(r.error.issues[0]?.message);
-  const b = await prisma.building.findFirst({
-    where: { id: r.data.buildingId, tenantId: user.tenantId },
-    select: { id: true },
-  });
-  if (!b) return fail("Gebäude nicht gefunden");
-  await prisma.unit.create({ data: { ...r.data, custom: pickCustom(entries), tenantId: user.tenantId } });
+  let buildingId = r.data.buildingId;
+  if (buildingId.startsWith(PROPERTY_PREFIX)) {
+    const prop = await prisma.property.findFirst({
+      where: { id: buildingId.slice(PROPERTY_PREFIX.length), tenantId: user.tenantId },
+      select: { id: true, buildings: { select: { id: true }, orderBy: { createdAt: "asc" }, take: 1 } },
+    });
+    if (!prop) return fail("Objekt nicht gefunden");
+    buildingId =
+      prop.buildings[0]?.id ??
+      (
+        await prisma.building.create({
+          data: { tenantId: user.tenantId, propertyId: prop.id, name: (await getTranslations("buildings"))("defaultName") },
+        })
+      ).id;
+  } else {
+    const b = await prisma.building.findFirst({ where: { id: buildingId, tenantId: user.tenantId }, select: { id: true } });
+    if (!b) return fail("Gebäude nicht gefunden");
+  }
+  await prisma.unit.create({ data: { ...r.data, buildingId, custom: pickCustom(entries), tenantId: user.tenantId } });
   return done();
 }
 

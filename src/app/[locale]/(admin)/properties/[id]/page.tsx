@@ -342,7 +342,10 @@ export default async function PropertyDetailPage({
       </div>
 
       {property.buildings.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("buildings.empty")}</p>
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-sm text-muted-foreground">{t("buildings.empty")}</p>
+          <UnitDialog buildingId={`property:${property.id}`} customDefs={unitDefs} />
+        </div>
       ) : (
         property.buildings.map((b) => (
           <Card key={b.id}>

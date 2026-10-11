@@ -315,7 +315,8 @@
     "new": "Neues Gebäude",
     "edit": "Gebäude bearbeiten",
     "empty": "Noch keine Gebäude in diesem Objekt.",
-    "units": "Einheiten"
+    "units": "Einheiten",
+    "defaultName": "Haupthaus"
   },
   "units": {
     "title": "Einheiten",
@@ -679,6 +680,12 @@
     "save": "Speichern",
     "emptyFile": "Datei enthält keine Zeilen",
     "missingFields": "Pflichtfelder nicht zugeordnet: {fields}",
+    "skippedTitle": "{count, plural, one {# Zeile übersprungen} other {# Zeilen übersprungen}}. Korrigieren und nur diese Zeilen erneut importieren:",
+    "issue": {
+      "required": "Zeile {row}: {field} fehlt",
+      "invalid": "Zeile {row}: {field} „{value}“ ist ungültig",
+      "propertyNotFound": "Zeile {row}: Objekt „{value}“ nicht gefunden (Name muss exakt einem vorhandenen Objekt entsprechen)"
+    },
     "fields": {
       "firstName": "Vorname",
       "lastName": "Nachname",

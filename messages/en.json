@@ -315,7 +315,8 @@
     "new": "New building",
     "edit": "Edit building",
     "empty": "No buildings in this property yet.",
-    "units": "Units"
+    "units": "Units",
+    "defaultName": "Main building"
   },
   "units": {
     "title": "Units",
@@ -679,6 +680,12 @@
     "save": "Save",
     "emptyFile": "File contains no rows",
     "missingFields": "Required fields not mapped: {fields}",
+    "skippedTitle": "{count, plural, one {# row skipped} other {# rows skipped}}. Fix them and re-import only these rows:",
+    "issue": {
+      "required": "Row {row}: {field} is missing",
+      "invalid": "Row {row}: {field} \"{value}\" is invalid",
+      "propertyNotFound": "Row {row}: property \"{value}\" not found (the name must match an existing property)"
+    },
     "fields": {
       "firstName": "First name",
       "lastName": "Last name",

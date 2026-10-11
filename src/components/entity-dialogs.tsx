@@ -180,12 +180,16 @@ type UnitData = {
   custom?: Record<string, string>;
 };
 
+// Neu anlegen: entweder fest `buildingId` (auch "property:<id>", legt bei Bedarf das
+// Standardgebäude an) oder eine Auswahl `buildings` (Objekt · Gebäude).
 export async function UnitDialog({
   buildingId,
+  buildings,
   unit,
   customDefs = [],
 }: {
-  buildingId: string;
+  buildingId?: string;
+  buildings?: { value: string; label: string }[];
   unit?: UnitData;
   customDefs?: { key: string; label: string }[];
 }) {
@@ -200,6 +204,8 @@ export async function UnitDialog({
     >
       {edit ? (
         <input type="hidden" name="id" value={unit!.id} />
+      ) : buildings ? (
+        <SelectField name="buildingId" label={t("units.building")} options={buildings} />
       ) : (
         <input type="hidden" name="buildingId" value={buildingId} />
       )}

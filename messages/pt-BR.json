@@ -315,7 +315,8 @@
     "new": "Novo edifício",
     "edit": "Editar edifício",
     "empty": "Nenhum edifício neste imóvel ainda.",
-    "units": "Unidades"
+    "units": "Unidades",
+    "defaultName": "Edifício principal"
   },
   "units": {
     "title": "Unidades",
@@ -679,6 +680,12 @@
     "save": "Salvar",
     "emptyFile": "O arquivo não possui linhas",
     "missingFields": "Campos obrigatórios não mapeados: {fields}",
+    "skippedTitle": "{count, plural, one {# linha ignorada} other {# linhas ignoradas}}. Corrija e importe novamente apenas estas linhas:",
+    "issue": {
+      "required": "Linha {row}: {field} ausente",
+      "invalid": "Linha {row}: {field} \"{value}\" é inválido",
+      "propertyNotFound": "Linha {row}: imóvel \"{value}\" não encontrado (o nome deve corresponder a um imóvel existente)"
+    },
     "fields": {
       "firstName": "Nome",
       "lastName": "Sobrenome",

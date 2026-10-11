@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { requireWriter } from "@/lib/rbac";
-import { parseCsv } from "@/lib/csv";
+import { decodeCsv, parseCsv } from "@/lib/csv";
 import { missingRequired } from "@/lib/import-columns";
-import { RUNNERS } from "@/lib/import-run";
+import { RUNNERS, type ImportIssue } from "@/lib/import-run";
 import type { ActionState } from "@/lib/schemas";
 
-export type ImportState = ActionState & { created?: number; skipped?: number };
+export type ImportState = ActionState & { created?: number; skipped?: number; issues?: ImportIssue[] };
 
 const ENTITIES = ["person", "property", "unit"] as const;
 type Entity = (typeof ENTITIES)[number];
@@ -45,12 +46,13 @@ export async function importMapped(_prev: ImportState, fd: FormData): Promise<Im
   const missing = missingRequired(entity, cols);
   if (missing.length) return { error: `Pflichtfelder nicht zugeordnet: ${missing.join(", ")}` };
 
-  const rows = parseCsv(await file.text());
+  const rows = parseCsv(decodeCsv(await file.arrayBuffer()));
   if (rows.length < 2) return { error: "Keine Datenzeilen gefunden" };
 
-  const { created, skipped } = await RUNNERS[entity](rows, cols, user.tenantId);
+  const defaultBuilding = (await getTranslations("buildings"))("defaultName");
+  const { created, skipped, issues } = await RUNNERS[entity](rows, cols, user.tenantId, { defaultBuilding });
   revalidatePath("/", "layout");
-  return { ok: true, created, skipped };
+  return { ok: true, created, skipped, issues };
 }
 
 // --- Mapping-Vorlagen (Presets) ---

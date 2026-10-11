@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import {
   deleteImportPreset,
   type ImportState,
 } from "@/server/actions/imports";
-import { parseCsv } from "@/lib/csv";
+import { decodeCsv, parseCsv } from "@/lib/csv";
 import { mapColumns, missingRequired, ENTITY_FIELDS, ENTITY_SPEC } from "@/lib/import-columns";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +47,8 @@ export function ImportDialog({ entity, presets = [] }: { entity: Entity; presets
   const [preview, setPreview] = useState<string[][]>([]);
   const [mapping, setMapping] = useState<Record<string, number>>({});
   const [presetName, setPresetName] = useState("");
+  const [issues, setIssues] = useState<NonNullable<ImportState["issues"]>>([]);
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, action, pending] = useActionState<ImportState, FormData>(importMapped, {});
   const [savePending, startSave] = useTransition();
 
@@ -56,11 +58,12 @@ export function ImportDialog({ entity, presets = [] }: { entity: Entity; presets
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
+    setIssues([]);
     if (!f) {
       setHeader(null);
       return;
     }
-    const rows = parseCsv(await f.text());
+    const rows = parseCsv(decodeCsv(await f.arrayBuffer()));
     if (rows.length === 0) {
       setHeader(null);
       toast.error(t("emptyFile"));
@@ -76,6 +79,7 @@ export function ImportDialog({ entity, presets = [] }: { entity: Entity; presets
     setPreview([]);
     setMapping({});
     setPresetName("");
+    setIssues([]);
   }
   function onOpenChange(v: boolean) {
     setOpen(v);
@@ -108,9 +112,14 @@ export function ImportDialog({ entity, presets = [] }: { entity: Entity; presets
   useEffect(() => {
     if (state.ok) {
       toast.success(t("done", { created: state.created ?? 0, skipped: state.skipped ?? 0 }));
-      setOpen(false);
-      reset();
       router.refresh();
+      reset();
+      // Übersprungene Zeilen: Dialog bleibt offen und zeigt die Gründe (#33). Die Datei wird
+      // geleert, damit ein zweiter Klick die schon importierten Zeilen nicht doppelt anlegt.
+      if (state.issues?.length) {
+        setIssues(state.issues);
+        formRef.current?.reset();
+      } else setOpen(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
@@ -129,7 +138,7 @@ export function ImportDialog({ entity, presets = [] }: { entity: Entity; presets
         <DialogHeader>
           <DialogTitle>{t(TITLE[entity])}</DialogTitle>
         </DialogHeader>
-        <form action={action} className="space-y-4">
+        <form ref={formRef} action={action} className="space-y-4">
           <input type="hidden" name="entity" value={entity} />
           <input type="hidden" name="mapping" value={JSON.stringify(mapping)} />
 
@@ -234,6 +243,18 @@ export function ImportDialog({ entity, presets = [] }: { entity: Entity; presets
             <p className="text-sm text-destructive">
               {t("missingFields", { fields: missing.map((f) => tf(f)).join(", ") })}
             </p>
+          )}
+          {issues.length > 0 && (
+            <div className="space-y-1 rounded-md border border-destructive/40 p-3" role="alert">
+              <p className="text-sm font-medium">{t("skippedTitle", { count: issues.length })}</p>
+              <ul className="max-h-48 list-disc space-y-0.5 overflow-y-auto pl-5 text-xs text-muted-foreground">
+                {issues.map((i) => (
+                  <li key={i.row}>
+                    {t(`issue.${i.code}`, { row: i.row, field: tf.has(i.field) ? tf(i.field) : i.field, value: i.value ?? "" })}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 
