@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { roleAllows, WRITE_ROLES } from "@/lib/rbac";
 
 export function hashToken(raw: string): string {
   return crypto.createHash("sha256").update(raw).digest("hex");
@@ -24,6 +25,8 @@ export async function authenticateBearer(req: Request): Promise<ApiPrincipal | n
     include: { user: { select: { id: true, tenantId: true, role: true, name: true } } },
   });
   if (!tok || tok.revokedAt) return null;
+  // API liefert Mandantendaten ungefiltert → nur Verwaltungsrollen (keine Portal-Rollen wie Mieter/Eigentümer).
+  if (!roleAllows(tok.user.role, WRITE_ROLES)) return null;
   // best-effort, blockiert die Anfrage nicht
   void prisma.apiToken.update({ where: { id: tok.id }, data: { lastUsedAt: new Date() } }).catch(() => {});
   return { userId: tok.user.id, tenantId: tok.user.tenantId, role: tok.user.role, name: tok.user.name };

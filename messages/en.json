@@ -959,6 +959,7 @@
     "property": "Property (optional)",
     "download": "Download",
     "eInvoice": "E-invoice",
+    "toCost": "Add as cost item",
     "size": "Size",
     "allProperties": "All properties",
     "unit": "Unit (optional)",

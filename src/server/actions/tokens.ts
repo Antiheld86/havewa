@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/rbac";
+import { requireUser, roleAllows, WRITE_ROLES } from "@/lib/rbac";
 import { generateToken } from "@/lib/api-auth";
 import { audit } from "@/lib/audit";
 import type { ActionState } from "@/lib/schemas";
@@ -17,6 +17,7 @@ const schema = z.object({
 
 export async function createApiToken(_p: TokenState, fd: FormData): Promise<TokenState> {
   const user = await requireUser();
+  if (!roleAllows(user.role, WRITE_ROLES)) return { error: "API-Token nur für Verwaltungsrollen." };
   const r = schema.safeParse(Object.fromEntries(fd));
   if (!r.success) return { error: r.error.issues[0]?.message ?? "Ungültige Eingabe" };
 
@@ -26,9 +27,10 @@ export async function createApiToken(_p: TokenState, fd: FormData): Promise<Toke
     if (user.role !== "ADMIN") return { error: "Nur Administratoren dürfen Token für andere anlegen." };
     const target = await prisma.user.findFirst({
       where: { id: r.data.userId, tenantId: user.tenantId },
-      select: { id: true },
+      select: { id: true, role: true },
     });
     if (!target) return { error: "Benutzer nicht gefunden" };
+    if (!roleAllows(target.role, WRITE_ROLES)) return { error: "API-Token nur für Verwaltungsrollen." };
     targetId = target.id;
   }
 

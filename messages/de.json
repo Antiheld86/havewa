@@ -959,6 +959,7 @@
     "property": "Objekt (optional)",
     "download": "Herunterladen",
     "eInvoice": "E-Rechnung",
+    "toCost": "Als Kostenposition übernehmen",
     "size": "Größe",
     "allProperties": "Alle Objekte",
     "unit": "Einheit (optional)",

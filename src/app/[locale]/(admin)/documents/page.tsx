@@ -1,7 +1,8 @@
 import { Download, FileText } from "lucide-react";
 import { DOCUMENT_CATEGORIES } from "@/lib/schemas";
 import { getTranslations, getLocale } from "next-intl/server";
-import { requireUser } from "@/lib/rbac";
+import { requireUser, roleAllows, WRITE_ROLES } from "@/lib/rbac";
+import { CostDialog } from "@/components/cost-dialog";
 import { prisma } from "@/lib/prisma";
 import { date, money } from "@/lib/format";
 import { getDateLocale } from "@/lib/date-locale";
@@ -36,6 +37,7 @@ export default async function DocumentsPage({
 }) {
   const sp = await searchParams;
   const user = await requireUser();
+  const canWrite = roleAllows(user.role, WRITE_ROLES);
   const t = await getTranslations();
   const locale = await getLocale();
   const df = await getDateLocale(locale);
@@ -181,6 +183,17 @@ export default async function DocumentsPage({
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           <DocumentPreview id={d.id} name={d.name} mime={d.mime} />
+                          {canWrite && (
+                            <CostDialog
+                              properties={propertyOpts}
+                              propertyId={d.propertyId}
+                              year={d.createdAt.getFullYear()}
+                              defaults={{
+                                amount: d.invoiceTotal ? String(d.invoiceTotal) : undefined,
+                                note: [d.name, d.invoiceNo && `Nr. ${d.invoiceNo}`].filter(Boolean).join(" · "),
+                              }}
+                            />
+                          )}
                           <DocumentDialog
                             properties={propertyOpts}
                             units={unitOpts}
