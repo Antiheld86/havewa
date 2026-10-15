@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
 import { readFile } from "@/lib/storage";
 import { mergeLetterPdf } from "@/lib/pdf-merge";
+import { toPdfA1b } from "@/server/pdfa";
 import { pingenSend, pingenStatus, mapPingenStatus, type PingenConfig, type PingenOptions } from "@/lib/adapters/pingen";
 import { epostSend, epostStatus, mapEpostStatus, splitAddress, type EpostConfig, type EpostOptions } from "@/lib/adapters/epost";
 import { letterPdf, MAX_RECIPIENT_LINES } from "@/server/letter-pdf";
@@ -107,7 +108,9 @@ export async function submitLetter(tenantId: string, letterId: string, provider:
     if (!cfg.epost) throw new Error("Deutsche Post (E-POST) ist nicht eingerichtet");
     const addr = splitAddress(letter.recipient.split("\n"));
     if (!addr) throw new Error("Die Anschrift braucht eine Zeile „PLZ Ort“");
-    const r = await epostSend(cfg.epost, pdf, fileName, addr, o, { testEmail, custom: letter.id });
+    // E-POST nimmt nur PDF/A-1b an: der Brief ist es, mit Anlagen (#66) wird umgewandelt.
+    const epostPdf = letter.attachments.length ? await toPdfA1b(pdf) : pdf;
+    const r = await epostSend(cfg.epost, epostPdf, fileName, addr, o, { testEmail, custom: letter.id });
     providerId = r.id;
     statusText = "";
     test = !!cfg.epost.test;

@@ -1,8 +1,9 @@
 # HaVeWa — Produktions-Image (Next.js + Prisma)
 FROM node:24-bookworm-slim AS base
 WORKDIR /app
-# openssl wird vom Prisma-Query-Engine benötigt
-RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+# openssl wird vom Prisma-Query-Engine benötigt; ghostscript wandelt Briefe mit
+# Anlagen für die Deutsche Post nach PDF/A-1b um
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ghostscript \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Build ---
