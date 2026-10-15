@@ -396,6 +396,7 @@ model Person {
   inboundEmails InboundEmail[]
   letters   Letter[]
   custom    Json          @default("{}")
+  appointments Appointment[] // Termine, an denen der Kontakt teilnimmt (#74)
   createdAt DateTime @default(now())
 
   @@index([tenantId])
@@ -873,7 +874,9 @@ model Document {
   emailAttachments EmailAttachment[]
   inboundAttachments InboundEmailAttachment[]
   payments   Payment[] // als Beleg verknüpfte Kontobewegungen (#23)
-  letters    Letter[] // Briefe, deren PDF dieses Dokument ist (#58)
+  letters    Letter[] @relation("LetterPdf") // Briefe, deren PDF dieses Dokument ist (#58)
+  letterAttachments Letter[] @relation("LetterAttachments") // als Anlage mitversendet (#66)
+  appointments Appointment[] // als Unterlage verknüpfte Termine (#74)
   createdAt  DateTime         @default(now())
 
   @@index([tenantId])
@@ -1015,6 +1018,8 @@ model Appointment {
   note       String?
   propertyId String?
   property   Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  persons    Person[] // Teilnehmer (#74)
+  documents  Document[] // benötigte Unterlagen (#74)
   createdAt  DateTime        @default(now())
 
   @@index([tenantId])
@@ -1064,7 +1069,8 @@ model Letter {
   subject    String
   body       String
   documentId String?
-  document   Document?    @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  document   Document?    @relation("LetterPdf", fields: [documentId], references: [id], onDelete: SetNull)
+  attachments Document[]  @relation("LetterAttachments") // Anlagen, beim Versand angehängt (#66)
   provider   String? // PINGEN | EPOST, null = nur PDF
   providerId String? // Brief-ID beim Anbieter
   options    Json? // Druck-/Versandoptionen (Farbe, Duplex, Produkt, Einschreiben)

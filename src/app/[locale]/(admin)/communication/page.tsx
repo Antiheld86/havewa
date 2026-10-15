@@ -65,7 +65,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
       where: { tenantId: user.tenantId },
       orderBy: { createdAt: "desc" },
       take: 100,
-      select: { id: true, name: true },
+      select: { id: true, name: true, mime: true },
     }),
     prisma.property.findMany({ where: { tenantId: user.tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.template.findMany({
@@ -97,6 +97,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
               include: {
                 person: { select: { id: true, firstName: true, lastName: true } },
                 statusEvents: { orderBy: { at: "asc" } },
+                attachments: { select: { id: true, name: true } },
               },
               orderBy: { createdAt: "desc" },
               take: 200,
@@ -140,6 +141,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
               recipients={recipients}
               templates={templates}
               providers={letterProviders}
+              documents={documents.filter((d) => d.mime === "application/pdf")}
               place={senderLines(tenant?.address).city}
               today={date(new Date(), df)}
             />
@@ -452,7 +454,14 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                           )}
                           <div className="text-xs text-muted-foreground">{lines.slice(1).join(", ")}</div>
                         </TableCell>
-                        <TableCell className="max-w-72 whitespace-normal">{l.subject}</TableCell>
+                        <TableCell className="max-w-72 whitespace-normal">
+                          {l.subject}
+                          {l.attachments.length > 0 && (
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                              {t("letters.attachments")}: {l.attachments.map((a) => a.name).join(", ")}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="whitespace-normal">
                           <span className="flex flex-wrap items-center gap-1.5">
                             <Badge variant={l.status === "FEHLER" ? "destructive" : l.status === "ENTWURF" ? "outline" : "secondary"}>

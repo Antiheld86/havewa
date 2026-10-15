@@ -18,6 +18,7 @@ export function quoteHtml(text: string): string {
 }
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
+export const decodeEntities = (s: string) => s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_m, e: string) => ENTITIES[e]);
 
 /** Text-Variante einer HTML-Mail: Absätze, Listen, Zitate und Links lesbar als Klartext. */
 export function htmlToText(html: string): string {
@@ -41,6 +42,6 @@ export function htmlToText(html: string): string {
     .replace(/<\/p>/gi, "\n\n")
     .replace(/<\/?(ul|p|strong|b|em|i|u|s)[^>]*>/gi, "")
     .replace(/<[^>]+>/g, "")
-    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_m, e: string) => ENTITIES[e]);
+    .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_m, e: string) => ENTITIES[e]); // = decodeEntities
   return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }

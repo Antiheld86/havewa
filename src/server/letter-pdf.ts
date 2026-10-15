@@ -1,6 +1,7 @@
 import "server-only";
 import path from "node:path";
 import PDFDocument from "pdfkit";
+import { letterBlocks } from "@/lib/letter-html";
 
 // Geschäftsbrief nach DIN 5008 (Form B) als PDF/A-1b (#58). PDF/A verlangt die
 // Deutsche Post (E-POSTBUSINESS); dafür ist die Schrift eingebettet (Liberation
@@ -17,7 +18,7 @@ export type LetterInput = {
   place: string; // Ort für die Datumszeile
   date: string; // bereits formatiert
   subject: string;
-  body: string; // Fließtext, Absätze durch Leerzeilen
+  body: string; // Editor-HTML (#67) oder Klartext mit Leerzeilen als Absatzgrenzen
 };
 
 export const MAX_RECIPIENT_LINES = 4; // mehr passt nicht in beide Fensterzonen
@@ -61,10 +62,21 @@ export function letterPdf(l: LetterInput): Promise<Buffer> {
 
   // Text; Seitenumbrüche macht pdfkit selbst (Folgeseiten ab dem oberen Rand)
   doc.font("R").fontSize(11).moveDown(1.2);
-  const paras = l.body.replace(/\r\n/g, "\n").split(/\n{2,}/);
-  paras.forEach((p, i) => {
-    doc.text(p, mm(25), doc.y, { width: mm(165), lineGap: 2 });
-    if (i < paras.length - 1) doc.moveDown(0.8);
+  // Formatierter Text (#67): fett, kursiv (schräggestellt), unterstrichen, Listen, Zitate
+  const blocks = letterBlocks(l.body);
+  blocks.forEach((b, i) => {
+    const x = mm(25 + b.indent * 6);
+    const width = mm(165 - b.indent * 6);
+    const y = doc.y;
+    if (b.marker) doc.font("R").text(b.marker, x - mm(5), y, { width: mm(5) });
+    b.runs.forEach((r, j) => {
+      const o = { width, lineGap: 2, continued: j < b.runs.length - 1, underline: !!r.underline, oblique: r.italic ? 12 : false };
+      doc.font(r.bold ? "B" : "R");
+      if (j === 0) doc.text(r.text, x, y, o);
+      else doc.text(r.text, o);
+    });
+    const next = blocks[i + 1];
+    if (next) doc.moveDown(b.marker && next.marker ? 0.3 : 0.8);
   });
 
   // Seitenzahlen bei mehrseitigen Briefen

@@ -1,5 +1,5 @@
 import { getTranslations, getLocale } from "next-intl/server";
-import { ChevronLeft, ChevronRight, Wrench, Gavel, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, Wrench, Gavel, CalendarDays, FileText, User } from "lucide-react";
 import { requireUser } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { date, intlLocale } from "@/lib/format";
@@ -33,10 +33,14 @@ export default async function CalendarPage({
   const last = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59));
   const daysInMonth = last.getUTCDate();
 
-  const [appointments, maintenance, meetings, properties] = await Promise.all([
+  const [appointments, maintenance, meetings, properties, persons, documents] = await Promise.all([
     prisma.appointment.findMany({
       where: { tenantId, start: { gte: first, lte: last } },
-      include: { property: { select: { name: true } } },
+      include: {
+        property: { select: { name: true } },
+        persons: { select: { id: true, firstName: true, lastName: true }, orderBy: { lastName: "asc" } },
+        documents: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+      },
       orderBy: { start: "asc" },
     }),
     prisma.maintenanceContract.findMany({
@@ -48,7 +52,11 @@ export default async function CalendarPage({
       include: { property: { select: { name: true } } },
     }),
     prisma.property.findMany({ where: { tenantId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.person.findMany({ where: { tenantId }, orderBy: [{ lastName: "asc" }, { firstName: "asc" }], select: { id: true, firstName: true, lastName: true } }),
+    prisma.document.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: 500, select: { id: true, name: true } }),
   ]);
+  const personOpts = persons.map((p) => ({ value: p.id, label: `${p.lastName}, ${p.firstName}` }));
+  const documentOpts = documents.map((d) => ({ value: d.id, label: d.name }));
 
   const propertyOpts = properties.map((p) => ({ value: p.id, label: p.name }));
 
@@ -105,7 +113,7 @@ export default async function CalendarPage({
           <h1 className="text-2xl font-semibold tracking-tight">{t("calendar.title")}</h1>
           <p className="text-sm text-muted-foreground">{t("calendar.subtitle")}</p>
         </div>
-        <AppointmentDialog properties={propertyOpts} />
+        <AppointmentDialog properties={propertyOpts} persons={personOpts} documents={documentOpts} />
       </div>
 
       <Card>
@@ -185,11 +193,27 @@ export default async function CalendarPage({
                       {a.property ? ` · ${a.property.name}` : ""}
                       {a.location ? ` · ${a.location}` : ""}
                     </div>
+                    {(a.persons.length > 0 || a.documents.length > 0) && (
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                        {a.persons.map((p) => (
+                          <Link key={p.id} href={`/persons/${p.id}`} className="flex items-center gap-1 hover:underline">
+                            <User className="size-3" />{p.firstName} {p.lastName}
+                          </Link>
+                        ))}
+                        {a.documents.map((d) => (
+                          <a key={d.id} href={`/api/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:underline">
+                            <FileText className="size-3" />{d.name}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <AppointmentDialog
                     properties={propertyOpts}
+                    persons={personOpts}
+                    documents={documentOpts}
                     appointment={{
                       id: a.id,
                       title: a.title,
@@ -199,6 +223,8 @@ export default async function CalendarPage({
                       location: a.location,
                       propertyId: a.propertyId,
                       note: a.note,
+                      personIds: a.persons.map((p) => p.id),
+                      documentIds: a.documents.map((d) => d.id),
                     }}
                   />
                   <DeleteButton action={deleteAppointment} id={a.id} />

@@ -5,7 +5,7 @@ import { Plus, Pencil } from "lucide-react";
 import { createAppointment, updateAppointment } from "@/server/actions/appointments";
 import { Button } from "@/components/ui/button";
 import { CrudDialog } from "@/components/crud-dialog";
-import { TextField, TextAreaField, SelectField } from "@/components/form-fields";
+import { TextField, TextAreaField, SelectField, MultiSelectField } from "@/components/form-fields";
 
 const TYPES = ["BESICHTIGUNG", "VERSAMMLUNG", "WARTUNG", "FRIST", "SONSTIGES"] as const;
 
@@ -18,16 +18,24 @@ export type AppointmentInput = {
   location: string | null;
   propertyId: string | null;
   note: string | null;
+  personIds: string[];
+  documentIds: string[];
 };
+
+type Opt = { value: string; label: string };
 
 const dtLocal = (iso?: string | null) => (iso ? iso.slice(0, 16) : undefined);
 
 export function AppointmentDialog({
   properties,
+  persons,
+  documents,
   defaultDate,
   appointment,
 }: {
-  properties: { value: string; label: string }[];
+  properties: Opt[];
+  persons: Opt[]; // Teilnehmer (#74)
+  documents: Opt[]; // Unterlagen (#74)
   defaultDate?: string;
   appointment?: AppointmentInput;
 }) {
@@ -69,6 +77,8 @@ export function AppointmentDialog({
         defaultValue={appointment?.propertyId ?? ""}
         options={[{ value: "", label: t("common.none") }, ...properties]}
       />
+      <MultiSelectField name="personIds" label={t("calendar.persons")} options={persons} defaultValues={appointment?.personIds} />
+      <MultiSelectField name="documentIds" label={t("calendar.documents")} options={documents} defaultValues={appointment?.documentIds} />
       <TextAreaField name="note" label={t("fields.note")} defaultValue={appointment?.note ?? undefined} />
     </CrudDialog>
   );

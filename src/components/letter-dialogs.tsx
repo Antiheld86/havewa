@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { FileText, Plus, Send, TriangleAlert, RefreshCw, Eye } from "lucide-react";
+import { FileText, Paperclip, Plus, Send, TriangleAlert, RefreshCw, Eye } from "lucide-react";
 import { createLetter, sendLetter, refreshLetters } from "@/server/actions/letters";
 import type { ActionState } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { RichTextEditor } from "@/components/rich-text-editor";
+import { textToHtml } from "@/lib/mail-html";
 
 export type ProviderInfo = { id: "PINGEN" | "EPOST"; test: boolean };
 type Recipient = { id: string; label: string; address: string[] };
@@ -99,10 +101,12 @@ export function LetterDialog({
   recipients,
   templates,
   providers,
+  documents,
   place,
   today,
 }: {
   recipients: Recipient[];
+  documents: { id: string; name: string }[]; // PDF-Dokumente als Anlagen (#66)
   templates: Tpl[];
   providers: ProviderInfo[];
   place: string;
@@ -115,7 +119,8 @@ export function LetterDialog({
   const [personId, setPersonId] = useState("");
   const [recipient, setRecipient] = useState("");
   const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [initialBody, setInitialBody] = useState("");
+  const [editorKey, setEditorKey] = useState(0);
   const [provider, setProvider] = useState("");
   const [state, action, pending] = useActionState<ActionState, FormData>(safe(createLetter, tc("actionFailed")), {});
   useDone(state, () => {
@@ -133,7 +138,8 @@ export function LetterDialog({
     const tpl = templates.find((x) => x.id === id);
     if (!tpl) return;
     if (tpl.subject) setSubject(tpl.subject);
-    setBody(tpl.body);
+    setInitialBody(textToHtml(tpl.body));
+    setEditorKey((k) => k + 1); // Editor mit Vorlage neu aufbauen
   }
 
   return (
@@ -200,17 +206,24 @@ export function LetterDialog({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="lBody">{t("body")}</Label>
-            <textarea
-              id="lBody"
-              name="body"
-              rows={12}
-              required
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder={t("bodyPlaceholder")}
-              className={cn(fieldCls, "py-2")}
-            />
+            <RichTextEditor key={editorKey} id="lBody" name="body" initialHtml={initialBody} />
           </div>
+          {documents.length > 0 && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Paperclip className="size-4" /> {t("attachments")}
+              </Label>
+              <div className="max-h-40 space-y-1 overflow-auto rounded-lg border p-2">
+                {documents.map((d) => (
+                  <label key={d.id} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted">
+                    <input type="checkbox" name="documentIds" value={d.id} className="size-4" />
+                    <span className="truncate">{d.name}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">{t("attachmentsHint")}</p>
+            </div>
+          )}
           <ShippingFields providers={providers} allowNone onProvider={setProvider} />
           {state.error && (
             <p className="flex items-center gap-1 text-sm text-destructive">

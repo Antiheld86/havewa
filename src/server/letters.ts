@@ -3,6 +3,7 @@ import type { LetterStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
 import { readFile } from "@/lib/storage";
+import { mergeLetterPdf } from "@/lib/pdf-merge";
 import { pingenSend, pingenStatus, mapPingenStatus, type PingenConfig, type PingenOptions } from "@/lib/adapters/pingen";
 import { epostSend, epostStatus, mapEpostStatus, splitAddress, type EpostConfig, type EpostOptions } from "@/lib/adapters/epost";
 import { letterPdf, MAX_RECIPIENT_LINES } from "@/server/letter-pdf";
@@ -63,10 +64,33 @@ export async function buildLetterPdf(tenantId: string, d: LetterDraft) {
 }
 
 /** Gespeicherten Brief beim Anbieter einreichen; aktualisiert Status/ID am Brief. */
+/** PDF-Dokumente des Mandanten, die als Anlage taugen (#66); fremde/Nicht-PDF-IDs fallen raus. */
+export async function letterAttachmentDocs(tenantId: string, ids: string[]) {
+  if (ids.length === 0) return [];
+  const docs = await prisma.document.findMany({
+    where: { tenantId, id: { in: ids }, mime: "application/pdf" },
+    select: { id: true, storageKey: true },
+  });
+  return ids.map((id) => docs.find((d) => d.id === id)).filter((d) => d !== undefined); // Reihenfolge der Auswahl
+}
+
+/** Brief-PDF plus Anlagen zu einem Versand-PDF. */
+export async function withAttachments(letterPdf: Buffer, attachments: { storageKey: string }[], duplex?: boolean) {
+  if (attachments.length === 0) return letterPdf;
+  try {
+    return await mergeLetterPdf(letterPdf, await Promise.all(attachments.map((a) => readFile(a.storageKey))), duplex);
+  } catch (e) {
+    throw new Error(`Anlage kann nicht angehängt werden (beschädigtes oder geschütztes PDF?): ${e instanceof Error ? e.message : e}`);
+  }
+}
+
 export async function submitLetter(tenantId: string, letterId: string, provider: LetterProvider, o: LetterOptions, testEmail?: string) {
-  const letter = await prisma.letter.findFirst({ where: { id: letterId, tenantId }, include: { document: true } });
+  const letter = await prisma.letter.findFirst({
+    where: { id: letterId, tenantId },
+    include: { document: true, attachments: { select: { storageKey: true } } },
+  });
   if (!letter?.document) throw new Error("Brief-PDF nicht gefunden");
-  const pdf = await readFile(letter.document.storageKey);
+  const pdf = await withAttachments(await readFile(letter.document.storageKey), letter.attachments, o.duplex);
   const cfg = await letterProviders(tenantId);
   const fileName = `Brief_${letter.id}.pdf`;
   let providerId: string;

@@ -6,12 +6,13 @@ import { requireRole, requireWriter } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
 import { encryptSecret } from "@/lib/crypto";
 import { deleteFile, saveFile } from "@/lib/storage";
+import { isEmptyHtml } from "@/server/mail-sanitize";
 import type { ActionState } from "@/lib/schemas";
 import { pingenPing } from "@/lib/adapters/pingen";
 import { epostPing } from "@/lib/adapters/epost";
 import { MAX_RECIPIENT_LINES } from "@/server/letter-pdf";
 import {
-  buildLetterPdf, submitLetter, refreshLetterStatus, letterProviders, setLetterStatus,
+  buildLetterPdf, submitLetter, refreshLetterStatus, letterProviders, setLetterStatus, letterAttachmentDocs,
   type LetterProvider, type LetterOptions,
 } from "@/server/letters";
 
@@ -54,10 +55,11 @@ export async function createLetter(_p: ActionState, fd: FormData): Promise<Actio
   const body = str(fd.get("body"));
   if (recipient.length < 2) return { error: "Bitte die vollständige Anschrift angeben (Name, Straße, PLZ Ort)" };
   if (recipient.length > MAX_RECIPIENT_LINES) return { error: `Die Anschrift darf höchstens ${MAX_RECIPIENT_LINES} Zeilen haben` };
-  if (!subject || !body) return { error: "Betreff und Text sind Pflicht" };
+  if (!subject || isEmptyHtml(body)) return { error: "Betreff und Text sind Pflicht" };
   let personId: string | null = str(fd.get("personId")) || null;
   if (personId && !(await prisma.person.findFirst({ where: { id: personId, tenantId: user.tenantId }, select: { id: true } }))) personId = null;
 
+  const attachments = await letterAttachmentDocs(user.tenantId, fd.getAll("documentIds").map(String));
   const pdf = await buildLetterPdf(user.tenantId, {
     recipient, subject, body, place: str(fd.get("place")), date: str(fd.get("date")),
   });
@@ -69,7 +71,9 @@ export async function createLetter(_p: ActionState, fd: FormData): Promise<Actio
     },
   });
   const letter = await prisma.letter.create({
-    data: { tenantId: user.tenantId, personId, recipient: recipient.join("\n"), subject, body, documentId: doc.id, sentById: user.id, statusEvents: { create: { status: "ENTWURF" } } },
+    data: { tenantId: user.tenantId, personId, recipient: recipient.join("\n"), subject, body, documentId: doc.id, sentById: user.id, statusEvents: { create: { status: "ENTWURF" } },
+      attachments: { connect: attachments.map((a) => ({ id: a.id })) },
+    },
   });
   await audit(user, "CREATE", "Letter", letter.id, subject);
 
