@@ -17,7 +17,8 @@ export async function bankConnector(tenantId: string): Promise<eb.Connector | nu
 export async function syncLink(tenantId: string, linkId: string, conn: eb.Connector) {
   const link = await prisma.bankLink.findFirst({ where: { id: linkId, tenantId } });
   if (!link) throw new Error("Verknüpfung nicht gefunden");
-  const from = link.lastSyncAt ?? new Date(Date.now() - 90 * 86_400_000);
+  // 14 Tage Überlappung: Banken buchen teils rückdatiert (Buchungsdatum vor dem letzten Sync, #73).
+  const from = link.lastSyncAt ? new Date(link.lastSyncAt.getTime() - 14 * 86_400_000) : new Date(Date.now() - 90 * 86_400_000);
   const raw = await eb.getTransactions(conn, link.accountUid, from.toISOString().slice(0, 10));
 
   // Offene Sollstellungen für Auto-Zuordnung (wie camt.053-Import).
@@ -30,7 +31,18 @@ export async function syncLink(tenantId: string, linkId: string, conn: eb.Connec
     const m = eb.mapTransaction(t);
     if (!m.externalId || !m.date || m.amount <= 0) continue;
     // Dedup: bereits importierte externe Transaktion überspringen (Gegenseite ggf. nachtragen, #60).
-    const known = await prisma.payment.findFirst({ where: { tenantId, externalId: m.externalId }, select: { id: true, counterparty: true } });
+    // Vor #73 importierte Zahlungen tragen nur die Bank-Referenz → zusätzlich über Datum+Betrag abgleichen.
+    const known = await prisma.payment.findFirst({
+      where: {
+        tenantId,
+        accountId: link.accountId,
+        OR: [
+          { externalId: m.externalId },
+          ...(m.legacyId ? [{ externalId: m.legacyId, date: new Date(m.date), amount: m.amount }] : []),
+        ],
+      },
+      select: { id: true, counterparty: true },
+    });
     if (known) {
       if (!known.counterparty && m.counterparty) {
         await prisma.payment.update({ where: { id: known.id }, data: { counterparty: m.counterparty, counterpartyIban: m.counterpartyIban } });

@@ -93,7 +93,7 @@ export function LetterConfig({
   pingen,
   epost,
 }: {
-  pingen: { clientId: string | null; orgId: string | null; staging: boolean; hasSecret: boolean };
+  pingen: { clientId: string | null; orgId: string | null; staging: boolean; autoRefresh: boolean; hasSecret: boolean };
   epost: { vendorId: string | null; ekp: string | null; test: boolean; hasPassword: boolean; hasSecret: boolean };
 }) {
   const t = useTranslations("letters");
@@ -115,6 +115,9 @@ export function LetterConfig({
         <Field name="pingenOrgId" label={t("orgId")} defaultValue={pingen.orgId} placeholder={t("orgIdPlaceholder")} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="pingenStaging" defaultChecked={pingen.staging} className="size-4" /> {t("pingenStaging")}
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="letterAutoRefresh" defaultChecked={pingen.autoRefresh} className="size-4" /> {t("autoRefresh")}
         </label>
       </ProviderCard>
       <ProviderCard provider="EPOST" title={t("provider_EPOST")} hint={t("epostHint")}>

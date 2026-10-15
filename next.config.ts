@@ -30,6 +30,13 @@ const nextConfig: NextConfig = {
   // pdfkit liest Schrift-/ICC-Daten zur Laufzeit aus node_modules (Briefe als PDF/A, #58);
   // gebündelt zeigen die Pfade ins Leere.
   serverExternalPackages: ["pdfkit"],
+  // Kommunikationsbereich hieß früher /email (#68); alte Links/Lesezeichen weiterleiten.
+  async redirects() {
+    return [
+      { source: "/:locale(de|en|pt-BR)/email/:path*", destination: "/:locale/communication/:path*", permanent: true },
+      { source: "/email/:path*", destination: "/communication/:path*", permanent: true },
+    ];
+  },
   experimental: {
     serverActions: { bodySizeLimit: "25mb" },
   },

@@ -41,8 +41,8 @@ describe("mapTransaction", () => {
         remittance_information: ["Miete", "Februar"],
         entry_reference: "TX-1",
       }),
-    ).toEqual({
-      externalId: "TX-1", amount: 850, direction: "EINGANG", date: "2026-02-15", reference: "Miete Februar",
+    ).toMatchObject({
+      legacyId: "TX-1", amount: 850, direction: "EINGANG", date: "2026-02-15", reference: "Miete Februar",
       counterparty: null, counterpartyIban: null,
     });
   });
@@ -68,7 +68,8 @@ describe("mapTransaction", () => {
     expect(m.direction).toBe("AUSGANG");
     expect(m.amount).toBe(12.5);
     expect(m.date).toBe("2026-03-01");
-    expect(m.externalId).toBe("T2");
+    expect(m.legacyId).toBe("T2");
+    expect(m.externalId).toMatch(/^eb:[0-9a-f]{32}$/);
     expect(m.reference).toBeNull();
   });
 });
@@ -88,5 +89,20 @@ describe("pickBalance (#57)", () => {
   it("leer oder ohne Betrag: null", () => {
     expect(pickBalance([])).toBeNull();
     expect(pickBalance([{ balance_type: "CLBD" }])).toBeNull();
+  });
+
+  // #73: Daueraufträge mit wiederverwendeter entry_reference dürfen nicht kollidieren.
+  it("Dauerauftrag: gleiche entry_reference, anderer Monat → anderer Dedup-Schlüssel", () => {
+    const base = { transaction_amount: { amount: "850" }, credit_debit_indicator: "CRDT", entry_reference: "DA-1", remittance_information: ["Miete"] };
+    const jan = mapTransaction({ ...base, booking_date: "2026-01-01" });
+    const feb = mapTransaction({ ...base, booking_date: "2026-02-01" });
+    expect(jan.externalId).not.toBe(feb.externalId);
+    expect(mapTransaction({ ...base, booking_date: "2026-01-01" }).externalId).toBe(jan.externalId); // stabil
+  });
+
+  it("ohne Bank-ID trotzdem importierbar", () => {
+    const m = mapTransaction({ transaction_amount: { amount: "5" }, credit_debit_indicator: "CRDT", booking_date: "2026-01-01" });
+    expect(m.externalId).toMatch(/^eb:/);
+    expect(m.legacyId).toBeNull();
   });
 });

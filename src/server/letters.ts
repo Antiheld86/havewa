@@ -1,4 +1,5 @@
 import "server-only";
+import type { LetterStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/crypto";
 import { readFile } from "@/lib/storage";
@@ -87,10 +88,20 @@ export async function submitLetter(tenantId: string, letterId: string, provider:
     statusText = "";
     test = !!cfg.epost.test;
   }
-  await prisma.letter.update({
-    where: { id: letter.id },
-    data: { provider, providerId, status: "EINGEREICHT", statusText, sentAt: new Date(), options: { ...o, test } },
-  });
+  await setLetterStatus(letter.id, "EINGEREICHT", statusText, { provider, providerId, sentAt: new Date(), options: { ...o, test } });
+}
+
+/** Status setzen und im Verlauf festhalten (#72). */
+export async function setLetterStatus(
+  id: string,
+  status: LetterStatus,
+  statusText: string | null,
+  extra: Omit<Prisma.LetterUpdateInput, "status" | "statusText"> = {},
+) {
+  await prisma.$transaction([
+    prisma.letter.update({ where: { id }, data: { ...extra, status, statusText } }),
+    prisma.letterStatusEvent.create({ data: { letterId: id, status, statusText } }),
+  ]);
 }
 
 /** Status offener Briefe beim Anbieter abfragen. Liefert die Zahl geänderter Briefe. */
@@ -116,7 +127,7 @@ export async function refreshLetterStatus(tenantId: string) {
         text = r.text;
       } else continue;
       if (status !== l.status || text !== (l.statusText ?? "")) {
-        await prisma.letter.update({ where: { id: l.id }, data: { status, statusText: text } });
+        await setLetterStatus(l.id, status, text);
         changed++;
       }
     } catch {

@@ -87,7 +87,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ key: st
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 space-y-1">
-          <Button variant="ghost" size="sm" render={<Link href="/email" />}>
+          <Button variant="ghost" size="sm" render={<Link href="/communication" />}>
             <ArrowLeft className="size-4" />
             {t("email.title")}
           </Button>
@@ -98,7 +98,7 @@ export default async function ThreadPage({ params }: { params: Promise<{ key: st
         </div>
         {canWrite && (
           <div className="flex shrink-0 items-center gap-2">
-            <DeleteButton action={deleteThread} id={key} redirectTo="/email" description={t("email.deleteThreadDesc")} />
+            <DeleteButton action={deleteThread} id={key} redirectTo="/communication" description={t("email.deleteThreadDesc")} />
             {inbound.length > 0 && (
               <form action={setThreadDone}>
                 <input type="hidden" name="key" value={key} />

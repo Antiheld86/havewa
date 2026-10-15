@@ -7,4 +7,6 @@ export async function register() {
   startInboundScheduler();
   const { startBankScheduler } = await import("./lib/bank-scheduler");
   startBankScheduler();
+  const { startLetterScheduler } = await import("./lib/letter-scheduler");
+  startLetterScheduler();
 }

@@ -149,6 +149,8 @@ model Tenant {
   pingenClientSecretEnc String?
   pingenOrgId           String? // leer = erste Organisation des Kontos
   pingenStaging         Boolean @default(false) // Testumgebung (nichts wird gedruckt)
+  letterAutoRefresh     Boolean @default(false) // Briefstatus täglich beim Anbieter abfragen (#65)
+  letterAutoRefreshAt   DateTime?
   epostVendorId         String?
   epostEkp              String? // 10-stellige Kundennummer
   epostPasswordEnc      String?
@@ -1070,10 +1072,23 @@ model Letter {
   statusText String? // Status/Fehler im Wortlaut des Anbieters
   sentAt     DateTime?
   sentById   String?
+  statusEvents LetterStatusEvent[]
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
 
   @@index([tenantId])
+}
+
+// Statusverlauf eines Briefes (#72): ein Eintrag je Statuswechsel.
+model LetterStatusEvent {
+  id         String       @id @default(cuid())
+  letterId   String
+  letter     Letter       @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  status     LetterStatus
+  statusText String?
+  at         DateTime     @default(now())
+
+  @@index([letterId])
 }
 
 enum EmailStatus {

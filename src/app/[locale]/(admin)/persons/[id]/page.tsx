@@ -19,7 +19,7 @@ import { EmailCompose } from "@/components/email-compose";
 import { sendEmail } from "@/server/actions/email";
 import { addr, ownMailIdentity } from "@/lib/threads";
 import { threadKey } from "@/lib/inbound";
-import { Paperclip, Send } from "lucide-react";
+import { Download, FileText, Paperclip, Send } from "lucide-react";
 
 export default async function PersonDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -103,7 +103,13 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
   const personName = `${person.firstName} ${person.lastName}`;
   const toLabel = (to: string) =>
     to.trim().toLowerCase() === person.email?.toLowerCase() ? addr(personName, person.email!) : to;
+  // Briefe an den Kontakt (#69) gehören mit in den Verlauf.
+  const letters = await prisma.letter.findMany({
+    where: { tenantId: user.tenantId, personId: person.id },
+    select: { id: true, subject: true, status: true, sentAt: true, createdAt: true, documentId: true },
+  });
   const communication = [
+    ...letters.map((l) => ({ dir: "letter" as const, id: l.id, date: l.sentAt ?? l.createdAt, subject: l.subject, status: l.status as string, documentId: l.documentId })),
     ...outbound.map((m) => ({
       dir: "out" as const, id: m.id, date: m.sentAt ?? m.createdAt, subject: m.subject, status: m.status as string | null,
       thread: threadKey(m), sender: m.sentBy?.name ?? null, from: own.from, toAddress: toLabel(m.toAddress), cc: m.cc, body: m.body, html: m.html,
@@ -237,31 +243,49 @@ export default async function PersonDetailPage({ params }: { params: Promise<{ i
         </CardContent>
       </Card>
 
-      {/* E-Mail-Kommunikation (#39) */}
-      {person.email && (
+      {/* Kommunikation: E-Mails (#39) und Briefe (#69) */}
+      {(person.email || letters.length > 0) && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
             <div>
               <CardTitle className="text-base">{t("persons.communication")}</CardTitle>
               <p className="text-xs text-muted-foreground">{t("persons.communicationHint")}</p>
             </div>
-            <EmailCompose
+            {person.email && <EmailCompose
               persons={[]}
               documents={documents}
               templates={templates}
               defaultTo={person.email}
               triggerLabel={t("persons.newMessage")}
-            />
+            />}
           </CardHeader>
           <CardContent className="space-y-1.5">
             {communication.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("persons.noCommunication")}</p>
             ) : (
-              communication.map((c) => (
+              communication.map((c) => c.dir === "letter" ? (
                 <div key={c.dir + c.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 font-medium">
-                      <Link href={`/email/thread/${c.thread}`} className="truncate hover:underline">{c.subject}</Link>
+                      <FileText className="size-4 shrink-0 text-muted-foreground" />
+                      <Link href="/communication?box=letters" className="truncate hover:underline">{c.subject}</Link>
+                    </div>
+                    <div className="text-xs text-muted-foreground">{dateTime(c.date, df)} · {t("persons.letter")}</div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Badge variant="outline">{t(`letterStatus.${c.status}`)}</Badge>
+                    {c.documentId && (
+                      <Button variant="ghost" size="icon" aria-label={t("documents.download")} render={<a href={`/api/documents/${c.documentId}`} />}>
+                        <Download className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div key={c.dir + c.id} className="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 font-medium">
+                      <Link href={`/communication/thread/${c.thread}`} className="truncate hover:underline">{c.subject}</Link>
                       {c.attachments.length > 0 && (
                         <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
                           <Paperclip className="size-3" />

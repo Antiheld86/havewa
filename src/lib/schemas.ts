@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { routing } from "@/i18n/routing";
+import { normalizePostalAddress, postalAddressError } from "@/lib/postal-address";
 
 export type ActionState = { ok?: boolean; error?: string };
 
@@ -92,7 +93,13 @@ export const personSchema = z.object({
     .transform((v) => (v ? v.replace(/\s/g, "").toUpperCase() : undefined))
     .refine((v) => v === undefined || isValidIban(v), "Ungültige IBAN"),
   accountHolder: optionalStr,
-  address: optionalStr, // Postanschrift ohne Namen (#58)
+  // Postanschrift ohne Namen (#58), versandfähig normalisiert und geprüft (#71)
+  address: optionalStr
+    .transform((v) => (v ? normalizePostalAddress(v).join("\n") : undefined))
+    .superRefine((v, ctx) => {
+      const err = v === undefined ? null : postalAddressError(v.split("\n"));
+      if (err) ctx.addIssue({ code: "custom", message: err });
+    }),
 });
 
 // IBAN-Prüfsumme (ISO 13616, mod 97).

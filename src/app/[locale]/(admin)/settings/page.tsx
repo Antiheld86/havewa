@@ -242,7 +242,7 @@ export default async function SettingsPage() {
       label: t("settings.tabLetters"),
       content: (
         <LetterConfig
-          pingen={{ clientId: tenant.pingenClientId, orgId: tenant.pingenOrgId, staging: tenant.pingenStaging, hasSecret: !!tenant.pingenClientSecretEnc }}
+          pingen={{ clientId: tenant.pingenClientId, orgId: tenant.pingenOrgId, staging: tenant.pingenStaging, autoRefresh: tenant.letterAutoRefresh, hasSecret: !!tenant.pingenClientSecretEnc }}
           epost={{
             vendorId: tenant.epostVendorId, ekp: tenant.epostEkp, test: tenant.epostTest,
             hasPassword: !!tenant.epostPasswordEnc, hasSecret: !!tenant.epostSecretEnc,

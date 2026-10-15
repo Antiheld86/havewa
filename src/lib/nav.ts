@@ -57,7 +57,7 @@ export const navGroups: NavGroup[] = [
       { key: "nav.calendar", href: "/calendar", icon: CalendarDays },
       { key: "nav.tickets", href: "/tickets", icon: Wrench },
       { key: "nav.documents", href: "/documents", icon: FolderOpen },
-      { key: "nav.email", href: "/email", icon: Mail },
+      { key: "nav.email", href: "/communication", icon: Mail },
     ],
   },
   {

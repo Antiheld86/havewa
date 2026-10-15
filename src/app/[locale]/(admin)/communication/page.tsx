@@ -94,7 +94,10 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
         box === "letters"
           ? prisma.letter.findMany({
               where: { tenantId: user.tenantId },
-              include: { person: { select: { id: true, firstName: true, lastName: true } } },
+              include: {
+                person: { select: { id: true, firstName: true, lastName: true } },
+                statusEvents: { orderBy: { at: "asc" } },
+              },
               orderBy: { createdAt: "desc" },
               take: 200,
             })
@@ -150,7 +153,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
           {(["threads", "in", "out", "letters"] as const).map((b) => (
             <Link
               key={b}
-              href={b === "threads" ? "/email" : `/email?box=${b}`}
+              href={b === "threads" ? "/communication" : `/communication?box=${b}`}
               className={cn(
                 "-mb-px border-b-2 px-3 py-2 text-sm font-medium",
                 box === b ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
@@ -176,7 +179,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                 {threads.map((th) => (
                   <Link
                     key={th.key}
-                    href={`/email/thread/${th.key}`}
+                    href={`/communication/thread/${th.key}`}
                     className={cn("flex items-center justify-between gap-4 px-4 py-3 text-sm hover:bg-muted", th.unread > 0 && "bg-muted/40")}
                   >
                     <div className="min-w-0">
@@ -240,7 +243,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                         </TableCell>
                         <TableCell className={cn(!m.readAt && "font-semibold")}>
                           <span className="flex items-center gap-2">
-                            <Link href={`/email/thread/${threadKey(m)}`} className="hover:underline">
+                            <Link href={`/communication/thread/${threadKey(m)}`} className="hover:underline">
                               {subject}
                             </Link>
                             {m.attachments.length > 0 && (
@@ -369,7 +372,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                     </TableCell>
                     <TableCell>
                       <span className="flex items-center gap-2">
-                        <Link href={`/email/thread/${threadKey(m)}`} className="hover:underline">
+                        <Link href={`/communication/thread/${threadKey(m)}`} className="hover:underline">
                           {m.subject}
                         </Link>
                         {m.attachments.length > 0 && (
@@ -462,6 +465,19 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                             <div className={cn("mt-0.5 text-xs", l.status === "FEHLER" ? "text-destructive" : "text-muted-foreground")}>
                               {l.statusText}
                             </div>
+                          )}
+                          {l.statusEvents.length > 1 && (
+                            <details className="mt-1 text-xs text-muted-foreground">
+                              <summary className="cursor-pointer select-none">{t("letters.statusHistory")}</summary>
+                              <ul className="mt-1 space-y-0.5">
+                                {l.statusEvents.map((e) => (
+                                  <li key={e.id}>
+                                    {dateTime(e.at, df)} · {t(`letterStatus.${e.status}`)}
+                                    {e.statusText ? ` (${e.statusText})` : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
                           )}
                         </TableCell>
                         <TableCell className="text-muted-foreground">{date(l.sentAt ?? l.createdAt, df)}</TableCell>

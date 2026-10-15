@@ -5,13 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireWriter } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
 import { encryptSecret } from "@/lib/crypto";
-import { saveFile } from "@/lib/storage";
+import { deleteFile, saveFile } from "@/lib/storage";
 import type { ActionState } from "@/lib/schemas";
 import { pingenPing } from "@/lib/adapters/pingen";
 import { epostPing } from "@/lib/adapters/epost";
 import { MAX_RECIPIENT_LINES } from "@/server/letter-pdf";
 import {
-  buildLetterPdf, submitLetter, refreshLetterStatus, letterProviders,
+  buildLetterPdf, submitLetter, refreshLetterStatus, letterProviders, setLetterStatus,
   type LetterProvider, type LetterOptions,
 } from "@/server/letters";
 
@@ -42,7 +42,7 @@ async function send(tenantId: string, letterId: string, provider: LetterProvider
     await submitLetter(tenantId, letterId, provider, o, testEmail);
     return null;
   } catch (e) {
-    await prisma.letter.update({ where: { id: letterId }, data: { provider, status: "FEHLER", statusText: errMsg(e).slice(0, 500) } });
+    await setLetterStatus(letterId, "FEHLER", errMsg(e).slice(0, 500), { provider });
     return errMsg(e);
   }
 }
@@ -69,7 +69,7 @@ export async function createLetter(_p: ActionState, fd: FormData): Promise<Actio
     },
   });
   const letter = await prisma.letter.create({
-    data: { tenantId: user.tenantId, personId, recipient: recipient.join("\n"), subject, body, documentId: doc.id, sentById: user.id },
+    data: { tenantId: user.tenantId, personId, recipient: recipient.join("\n"), subject, body, documentId: doc.id, sentById: user.id, statusEvents: { create: { status: "ENTWURF" } } },
   });
   await audit(user, "CREATE", "Letter", letter.id, subject);
 
@@ -104,8 +104,15 @@ export async function refreshLetters(_p: ActionState, _fd: FormData): Promise<Ac
 export async function deleteLetter(fd: FormData): Promise<void> {
   const user = await requireWriter();
   const id = str(fd.get("id"));
-  const res = await prisma.letter.deleteMany({ where: { id, tenantId: user.tenantId } });
-  if (res.count > 0) await audit(user, "DELETE", "Letter", id);
+  const letter = await prisma.letter.findFirst({ where: { id, tenantId: user.tenantId }, include: { document: true } });
+  if (!letter) return;
+  await prisma.letter.delete({ where: { id: letter.id } });
+  // Das erzeugte Brief-PDF mitlöschen (#70), sonst bleibt es verwaist in den Dokumenten.
+  if (letter.document) {
+    await prisma.document.delete({ where: { id: letter.document.id } });
+    await deleteFile(letter.document.storageKey).catch(() => {});
+  }
+  await audit(user, "DELETE", "Letter", id);
   revalidatePath("/", "layout");
 }
 
@@ -125,6 +132,7 @@ export async function updateLetterConfig(_p: ActionState, fd: FormData): Promise
             pingenClientId: clientId,
             pingenOrgId: str(fd.get("pingenOrgId")) || null,
             pingenStaging: fd.get("pingenStaging") === "on",
+            letterAutoRefresh: fd.get("letterAutoRefresh") === "on",
             ...secret("pingenClientSecret", "pingenClientSecretEnc"),
           }
         : { pingenClientId: null, pingenClientSecretEnc: null, pingenOrgId: null }, // leere Client-ID = Pingen entfernen

@@ -1,4 +1,4 @@
-import { createSign } from "node:crypto";
+import { createHash, createSign } from "node:crypto";
 
 // Enable Banking (Open Banking Aggregator). Auth = selbst signiertes JWT (RS256)
 // mit dem Application-Private-Key; kid = Application-ID. Doku:
@@ -21,6 +21,7 @@ export function buildJwt(applicationId: string, privateKeyPem: string, nowMs: nu
 
 export type MappedTx = {
   externalId: string | null;
+  legacyId: string | null; // alte Dedup-ID (nur Bank-Referenz), für vor #73 importierte Zahlungen
   amount: number;
   direction: "EINGANG" | "AUSGANG";
   date: string | null; // YYYY-MM-DD
@@ -37,13 +38,21 @@ export function mapTransaction(t: Record<string, unknown>): MappedTx {
   const date = (t.booking_date as string) || (t.value_date as string) || null;
   const rem = t.remittance_information;
   const reference = Array.isArray(rem) ? rem.join(" ").trim() : typeof rem === "string" ? rem : null;
-  const externalId = (t.entry_reference as string) || (t.transaction_id as string) || null;
+  const legacyId = (t.entry_reference as string) || (t.transaction_id as string) || null;
+  // Dedup-Schlüssel (#73): entry_reference wird von manchen Banken für jede Ausführung eines
+  // Dauerauftrags wiederverwendet → Bank-ID plus Datum/Betrag/Richtung/Verwendungszweck.
+  // Ohne Bank-ID trotzdem importierbar.
+  const externalId = date
+    ? "eb:" + createHash("sha256")
+        .update([t.transaction_id ?? "", t.entry_reference ?? "", date, amount.toFixed(2), direction, reference ?? ""].join("|"))
+        .digest("hex").slice(0, 32)
+    : null;
   // Gegenseite: bei Eingang der Zahler (debtor), bei Ausgang der Empfänger (creditor)
   const side = direction === "EINGANG" ? "debtor" : "creditor";
   const party = t[side] as { name?: string } | undefined;
   const acct = t[`${side}_account`] as { iban?: string } | undefined;
   return {
-    externalId, amount, direction, date, reference: reference || null,
+    externalId, legacyId, amount, direction, date, reference: reference || null,
     counterparty: party?.name?.trim() || null,
     counterpartyIban: acct?.iban?.replace(/\s/g, "") || null,
   };
