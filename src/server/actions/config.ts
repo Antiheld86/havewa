@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { isNotifyKind } from "@/lib/notify-kinds";
 import { requireRole } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
 import { pingAi } from "@/lib/ai";
@@ -42,6 +43,18 @@ export async function updateOutboxConfig(_p: ActionState, fd: FormData): Promise
   }
   await prisma.tenant.update({ where: { id: user.tenantId }, data: { outboxDelayMin } });
   await audit(user, "UPDATE", "Tenant", user.tenantId, `Postausgang: ${outboxDelayMin ?? "manuell"}`);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
+// --- E-Mail-Benachrichtigungen (#77) ---
+
+export async function updateNotifyConfig(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireRole(["ADMIN"]);
+  const notifyEmail = fd.getAll("kinds").map(String).filter(isNotifyKind);
+  // Cursor neu setzen: nach dem (Wieder-)Einschalten nichts rückwirkend nachmelden
+  await prisma.tenant.update({ where: { id: user.tenantId }, data: { notifyEmail, notifyCursorAt: new Date() } });
+  await audit(user, "UPDATE", "Tenant", user.tenantId, `Benachrichtigungen: ${notifyEmail.join(", ") || "aus"}`);
   revalidatePath("/", "layout");
   return { ok: true };
 }

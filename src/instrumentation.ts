@@ -11,4 +11,6 @@ export async function register() {
   startLetterScheduler();
   const { startOutboxScheduler } = await import("./lib/outbox-scheduler");
   startOutboxScheduler();
+  const { startNotifyScheduler } = await import("./lib/notify-scheduler");
+  startNotifyScheduler();
 }

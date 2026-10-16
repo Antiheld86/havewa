@@ -48,7 +48,7 @@ export async function reportIssue(_p: ActionState, fd: FormData): Promise<Action
     title: `Neue Schadensmeldung: ${r.data.title}`,
     body: [where, user.name].filter(Boolean).join(" — "),
     link: "/tickets",
-  });
+  }, "ISSUE_REPORTED");
 
   revalidatePath("/", "layout");
   return { ok: true };

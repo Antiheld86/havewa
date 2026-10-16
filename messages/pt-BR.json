@@ -781,7 +781,7 @@
     "charge": "Cobrança",
     "dun": "Cobrar",
     "dunTitle": "Criar aviso de cobrança",
-    "dunConfirm": "Um aviso de cobrança será criado para {name}. Depois, imprima-o ou envie-o por e-mail.",
+    "dunConfirm": "Um aviso de cobrança será criado para {name}. Depois, imprima-o ou envie-o por e-mail ou por correio.",
     "dunPrint": "Imprimir",
     "dunEmail": "Enviar e-mail",
     "dunCancel": "Cancelar",
@@ -1300,5 +1300,28 @@
     "infoManual": "As mensagens ficam como rascunho na caixa de saída até serem enviadas de lá.",
     "infoNow": "As mensagens são enviadas imediatamente.",
     "infoDelay": "As mensagens são entregues automaticamente {min} minutos após o envio e podem ser retidas até lá."
+  },
+  "notifyMail": {
+    "title": "Notificações por e-mail",
+    "hint": "Administradores, gestores e contabilidade recebem um e-mail no endereço de login para os eventos selecionados (além do sino no app). As notificações são enviadas na hora, sem passar pela caixa de saída. Verificação a cada 5 minutos.",
+    "noSmtp": "Sem SMTP configurado: as notificações aparecem só no app.",
+    "save": "Salvar",
+    "saved": "Salvo",
+    "kind_RENT_OVERDUE": "Aluguel em atraso",
+    "kindHint_RENT_OVERDUE": "Aluguel não recebido (integralmente) até o dia seguinte ao vencimento",
+    "kind_PAYMENTS": "Pagamentos",
+    "kindHint_PAYMENTS": "Novos pagamentos recebidos e efetuados (sincronização, importação, manual)",
+    "kind_LETTER_STATUS": "Cartas",
+    "kindHint_LETTER_STATUS": "Carta enviada, entregue ou com falha",
+    "kind_APPOINTMENT_DAY": "Compromissos um dia antes",
+    "kindHint_APPOINTMENT_DAY": "Lembrete 24 horas antes do início",
+    "kind_APPOINTMENT_HOUR": "Compromissos uma hora antes",
+    "kindHint_APPOINTMENT_HOUR": "Lembrete 60 minutos antes do início",
+    "kind_APPOINTMENT_PERSONS": "Lembrar também os participantes",
+    "kindHint_APPOINTMENT_PERSONS": "Contatos do compromisso com e-mail também recebem o lembrete",
+    "kind_ISSUE_REPORTED": "Relatos de danos",
+    "kindHint_ISSUE_REPORTED": "Inquilino relata um dano pelo portal",
+    "kind_INBOUND_EMAIL": "E-mails recebidos",
+    "kindHint_INBOUND_EMAIL": "Novos e-mails na caixa de entrada (IMAP)"
   }
 }

@@ -781,7 +781,7 @@
     "charge": "Sollstellung",
     "dun": "Mahnen",
     "dunTitle": "Mahnung erstellen",
-    "dunConfirm": "Für {name} wird eine Mahnung erstellt. Danach direkt drucken oder per E-Mail senden.",
+    "dunConfirm": "Für {name} wird eine Mahnung erstellt. Danach direkt drucken, per E-Mail oder per Brief senden.",
     "dunPrint": "Drucken",
     "dunEmail": "E-Mail senden",
     "dunCancel": "Abbrechen",
@@ -1300,5 +1300,28 @@
     "infoManual": "Nachrichten bleiben als Entwurf im Postausgang, bis sie dort gesendet werden.",
     "infoNow": "Nachrichten werden sofort versendet.",
     "infoDelay": "Nachrichten werden {min} Minuten nach dem Senden automatisch zugestellt und können bis dahin angehalten werden."
+  },
+  "notifyMail": {
+    "title": "E-Mail-Benachrichtigungen",
+    "hint": "Verwalter, Admins und Buchhaltung erhalten zu den gewählten Ereignissen eine E-Mail an ihre Login-Adresse (zusätzlich zur Glocke in der App). Benachrichtigungen gehen sofort raus, nicht über den Postausgang. Geprüft wird alle 5 Minuten.",
+    "noSmtp": "Kein SMTP eingerichtet: Benachrichtigungen erscheinen nur in der App.",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "kind_RENT_OVERDUE": "Mietrückstand",
+    "kindHint_RENT_OVERDUE": "Miete ist am Tag nach der Fälligkeit nicht (vollständig) eingegangen",
+    "kind_PAYMENTS": "Zahlungen",
+    "kindHint_PAYMENTS": "Neue ein- und ausgehende Zahlungen (Bank-Sync, Import, manuell)",
+    "kind_LETTER_STATUS": "Briefversand",
+    "kindHint_LETTER_STATUS": "Brief versendet, zugestellt oder fehlgeschlagen",
+    "kind_APPOINTMENT_DAY": "Termine einen Tag vorher",
+    "kindHint_APPOINTMENT_DAY": "Erinnerung 24 Stunden vor Beginn",
+    "kind_APPOINTMENT_HOUR": "Termine eine Stunde vorher",
+    "kindHint_APPOINTMENT_HOUR": "Erinnerung 60 Minuten vor Beginn",
+    "kind_APPOINTMENT_PERSONS": "Termin-Teilnehmer mit erinnern",
+    "kindHint_APPOINTMENT_PERSONS": "Im Termin hinterlegte Personen mit E-Mail erhalten die Erinnerung auch",
+    "kind_ISSUE_REPORTED": "Schadensmeldungen",
+    "kindHint_ISSUE_REPORTED": "Mieter meldet einen Schaden über das Portal",
+    "kind_INBOUND_EMAIL": "Eingehende E-Mails",
+    "kindHint_INBOUND_EMAIL": "Neue Mails im Posteingang (IMAP-Abruf)"
   }
 }

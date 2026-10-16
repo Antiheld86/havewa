@@ -17,6 +17,7 @@ services:
       AUTH_TRUST_HOST: "true"
       # Optionaler Bootstrap beim ersten Start (alle optional):
       SEED_DEMO: "${SEED_DEMO:-}"
+      APP_URL: "${APP_URL:-}"
       ADMIN_EMAIL: "${ADMIN_EMAIL:-}"
       ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
       ADMIN_NAME: "${ADMIN_NAME:-}"

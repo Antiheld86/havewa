@@ -136,6 +136,11 @@ model Tenant {
   // 0 = sofort, null = nur manuell aus dem Postausgang
   outboxDelayMin Int? @default(10)
 
+  // E-Mail-Benachrichtigungen an Verwalter (#77): aktivierte Arten (lib/notify-kinds),
+  // notifyCursorAt = Ende des zuletzt geprüften Zeitfensters
+  notifyEmail    String[] @default([])
+  notifyCursorAt DateTime?
+
   // IMAP-Postfach für eingehende Mails (Kommunikationsverlauf, #39)
   imapHost     String?
   imapPort     Int?

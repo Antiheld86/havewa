@@ -781,7 +781,7 @@
     "charge": "Charge",
     "dun": "Dun",
     "dunTitle": "Create dunning notice",
-    "dunConfirm": "A dunning notice will be created for {name}. Then print it or send it by email.",
+    "dunConfirm": "A dunning notice will be created for {name}. Then print it or send it by email or by post.",
     "dunPrint": "Print",
     "dunEmail": "Send email",
     "dunCancel": "Cancel",
@@ -1300,5 +1300,28 @@
     "infoManual": "Messages stay as drafts in the outbox until sent from there.",
     "infoNow": "Messages are sent immediately.",
     "infoDelay": "Messages are delivered automatically {min} minutes after sending and can be held until then."
+  },
+  "notifyMail": {
+    "title": "Email notifications",
+    "hint": "Managers, admins and accounting get an email to their login address for the selected events (in addition to the in-app bell). Notifications are sent right away, not through the outbox. Checked every 5 minutes.",
+    "noSmtp": "No SMTP configured: notifications only appear in the app.",
+    "save": "Save",
+    "saved": "Saved",
+    "kind_RENT_OVERDUE": "Rent arrears",
+    "kindHint_RENT_OVERDUE": "Rent not (fully) received by the day after it was due",
+    "kind_PAYMENTS": "Payments",
+    "kindHint_PAYMENTS": "New incoming and outgoing payments (bank sync, import, manual)",
+    "kind_LETTER_STATUS": "Letters",
+    "kindHint_LETTER_STATUS": "Letter dispatched, delivered or failed",
+    "kind_APPOINTMENT_DAY": "Appointments one day ahead",
+    "kindHint_APPOINTMENT_DAY": "Reminder 24 hours before start",
+    "kind_APPOINTMENT_HOUR": "Appointments one hour ahead",
+    "kindHint_APPOINTMENT_HOUR": "Reminder 60 minutes before start",
+    "kind_APPOINTMENT_PERSONS": "Also remind participants",
+    "kindHint_APPOINTMENT_PERSONS": "Contacts on the appointment with an email get the reminder too",
+    "kind_ISSUE_REPORTED": "Damage reports",
+    "kindHint_ISSUE_REPORTED": "A tenant reports damage through the portal",
+    "kind_INBOUND_EMAIL": "Incoming emails",
+    "kindHint_INBOUND_EMAIL": "New mails in the inbox (IMAP fetch)"
   }
 }

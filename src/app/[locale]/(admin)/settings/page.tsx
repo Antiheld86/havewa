@@ -16,6 +16,8 @@ import {
 import { UserDialog, EditUserDialog, ResetPasswordDialog } from "@/components/user-dialogs";
 import { SettingsConfig } from "@/components/settings-config";
 import { OutboxConfig } from "@/components/outbox-config";
+import { NotifyConfig } from "@/components/notify-config";
+import { isMailerConfigured } from "@/lib/adapters/mailer";
 import { LetterConfig } from "@/components/letter-config";
 import { BrandingConfig } from "@/components/branding-config";
 import { CustomFieldDialog } from "@/components/custom-field-dialog";
@@ -210,6 +212,7 @@ export default async function SettingsPage() {
       content: (
         <div className="grid gap-6 lg:grid-cols-2">
           <OutboxConfig delayMin={tenant?.outboxDelayMin ?? null} />
+          <NotifyConfig enabled={tenant?.notifyEmail ?? []} smtpConfigured={isMailerConfigured({ host: tenant?.smtpHost })} />
           <SettingsConfig section="smtp" ai={cfgProps.ai} smtp={cfgProps.smtp} />
           <SettingsConfig section="imap" ai={cfgProps.ai} smtp={cfgProps.smtp} imap={cfgProps.imap} />
         </div>
