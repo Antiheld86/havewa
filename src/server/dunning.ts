@@ -1,4 +1,5 @@
 import "server-only";
+import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { simplePdf } from "@/lib/pdf";
 import { dunningDocument } from "@/lib/dunning";
@@ -38,7 +39,8 @@ export async function dunningFor(tenantId: string, chargeId: string) {
     renterName: renter ? `${renter.firstName} ${renter.lastName}` : "",
     tenantName: property.tenant.name,
     tenantContact: tenantContact(property.tenant),
-    chargeTypeLabel: charge.type,
+    // Mahnungen sind deutschsprachig, daher das deutsche Label der Kostenart
+    chargeTypeLabel: (await getTranslations({ locale: "de", namespace: "chargeType" }))(charge.type),
     period: charge.period,
     dueDate: charge.dueDate,
     open,

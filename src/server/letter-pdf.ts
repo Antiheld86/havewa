@@ -69,11 +69,21 @@ export function letterPdf(l: LetterInput): Promise<Buffer> {
     const width = mm(165 - b.indent * 6);
     const y = doc.y;
     if (b.marker) doc.font("R").text(b.marker, x - mm(5), y, { width: mm(5) });
+    // Zeilenumbruch (<br>): pdfkit setzt "\n" in fortgesetztem Text als Leerzeichen,
+    // daher die Zeile dort beenden und die nächste am Blockanfang (x) weiterschreiben
+    let lineStart = true;
     b.runs.forEach((r, j) => {
-      const o = { width, lineGap: 2, continued: j < b.runs.length - 1, underline: !!r.underline, oblique: r.italic ? 12 : false };
+      if (r.text === "\n") {
+        if (!lineStart) doc.text("", { continued: false });
+        else if (j > 0) doc.text(" ", x, doc.y, { width }); // Leerzeile
+        lineStart = true;
+        return;
+      }
+      const o = { width, lineGap: 2, continued: j < b.runs.length - 1 && b.runs[j + 1].text !== "\n", underline: !!r.underline, oblique: r.italic ? 12 : false };
       doc.font(r.bold ? "B" : "R");
-      if (j === 0) doc.text(r.text, x, y, o);
+      if (lineStart) doc.text(r.text, x, j === 0 ? y : doc.y, o);
       else doc.text(r.text, o);
+      lineStart = false;
     });
     const next = blocks[i + 1];
     if (next) doc.moveDown(b.marker && next.marker ? 0.3 : 0.8);

@@ -115,7 +115,7 @@ export function DunningDialog({
       >
         <Bell className="size-4" />
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{t("dunTitle")}</DialogTitle>
           <DialogDescription>{t("dunConfirm", { name: renterName || "—" })}</DialogDescription>
@@ -125,7 +125,7 @@ export function DunningDialog({
             <ShippingFields providers={providers} allowNone={false} onProvider={noop} />
           </form>
         )}
-        <DialogFooter>
+        <DialogFooter className="flex-wrap">
           <DialogClose render={<Button variant="ghost" disabled={pending} />}>{t("dunCancel")}</DialogClose>
           <Button variant="outline" onClick={doPrint} disabled={pending}>
             <Printer className="size-4" /> {t("dunPrint")}
