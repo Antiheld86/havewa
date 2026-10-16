@@ -8,6 +8,7 @@ import { money } from "@/lib/format";
 import { simplePdf } from "@/lib/pdf";
 import { saveFile } from "@/lib/storage";
 import { computeStatement } from "@/server/statements";
+import { queueEmails } from "@/server/outbox";
 import type { ActionState } from "@/lib/schemas";
 
 function parse(fd: FormData) {
@@ -59,7 +60,7 @@ export async function emailStatementToTenants(_p: ActionState, fd: FormData): Pr
 
   const st = await computeStatement(user.tenantId, propertyId, year);
   const propName = st.property?.name ?? "";
-  let created = 0;
+  const ids: string[] = [];
 
   for (const u of st.units) {
     if (u.renterEmails.length === 0) continue;
@@ -96,7 +97,7 @@ export async function emailStatementToTenants(_p: ActionState, fd: FormData): Pr
       },
     });
 
-    await prisma.emailMessage.create({
+    const msg = await prisma.emailMessage.create({
       data: {
         tenantId: user.tenantId,
         toAddress: u.renterEmails.join(", "),
@@ -106,9 +107,11 @@ export async function emailStatementToTenants(_p: ActionState, fd: FormData): Pr
         attachments: { create: [{ documentId: doc.id }] },
       },
     });
-    created++;
+    ids.push(msg.id);
   }
-  if (created > 0) await audit(user, "CREATE", "EmailMessage", null, `${created}× Abrechnung ${year} (PDF)`);
+  if (ids.length === 0) return { error: "Keine Mieter mit E-Mail-Adresse gefunden." };
+  await audit(user, "CREATE", "EmailMessage", null, `${ids.length}× Abrechnung ${year} (PDF)`);
+  const notice = await queueEmails(user.tenantId, ids, user);
   revalidatePath("/", "layout");
-  return created > 0 ? { ok: true } : { error: "Keine Mieter mit E-Mail-Adresse gefunden." };
+  return { ok: true, notice };
 }

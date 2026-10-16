@@ -1168,10 +1168,12 @@
     "importAttachment": "Anhang als Dokument übernehmen",
     "imported": "Übernommen",
     "attachmentsShort": "Anhänge",
-    "deleteThreadDesc": "Alle ein- und ausgehenden Mails dieser Unterhaltung werden gelöscht. Bereits übernommene Dokumente bleiben erhalten."
+    "deleteThreadDesc": "Alle ein- und ausgehenden Mails dieser Unterhaltung werden gelöscht. Bereits übernommene Dokumente bleiben erhalten.",
+    "saveDraft": "Als Entwurf speichern"
   },
   "emailStatus": {
     "ENTWURF": "Entwurf",
+    "GEPLANT": "Geplant",
     "GESENDET": "Gesendet",
     "FEHLER": "Fehler"
   },
@@ -1272,9 +1274,28 @@
   },
   "letterStatus": {
     "ENTWURF": "Erstellt",
+    "GEPLANT": "Geplant",
     "EINGEREICHT": "Eingereicht",
     "VERSENDET": "Versendet",
     "ZUGESTELLT": "Zugestellt",
     "FEHLER": "Fehler"
+  },
+  "outbox": {
+    "sent": "Gesendet",
+    "queued": "Im Postausgang eingeplant, wird automatisch versendet",
+    "draft": "Als Entwurf im Postausgang gespeichert",
+    "failed": "Versand fehlgeschlagen, Details im Postausgang",
+    "title": "Postausgang",
+    "hint": "Ausgehende E-Mails und Briefe (auch Mahnungen, Wohnungsgeberbestätigungen, Abrechnungen) werden nach dieser Verzögerung automatisch versendet. Bis dahin lassen sie sich im Postausgang anhalten oder sofort senden. Systembenachrichtigungen sind davon nicht betroffen.",
+    "delay": "Verzögerung (Minuten, 0 = sofort)",
+    "manual": "Nur manuell aus dem Postausgang versenden",
+    "save": "Speichern",
+    "saved": "Gespeichert",
+    "hold": "Anhalten",
+    "sendNow": "Jetzt senden",
+    "at": "Versand {at}",
+    "infoManual": "Nachrichten bleiben als Entwurf im Postausgang, bis sie dort gesendet werden.",
+    "infoNow": "Nachrichten werden sofort versendet.",
+    "infoDelay": "Nachrichten werden {min} Minuten nach dem Senden automatisch zugestellt und können bis dahin angehalten werden."
   }
 }

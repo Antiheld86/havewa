@@ -1168,10 +1168,12 @@
     "importAttachment": "Importar anexo como documento",
     "imported": "Importado",
     "attachmentsShort": "Anexos",
-    "deleteThreadDesc": "Todos os e-mails recebidos e enviados desta conversa serão excluídos. Documentos já importados são mantidos."
+    "deleteThreadDesc": "Todos os e-mails recebidos e enviados desta conversa serão excluídos. Documentos já importados são mantidos.",
+    "saveDraft": "Salvar como rascunho"
   },
   "emailStatus": {
     "ENTWURF": "Rascunho",
+    "GEPLANT": "Agendado",
     "GESENDET": "Enviado",
     "FEHLER": "Erro"
   },
@@ -1272,9 +1274,28 @@
   },
   "letterStatus": {
     "ENTWURF": "Criada",
+    "GEPLANT": "Agendado",
     "EINGEREICHT": "Enviada ao serviço",
     "VERSENDET": "Postada",
     "ZUGESTELLT": "Entregue",
     "FEHLER": "Erro"
+  },
+  "outbox": {
+    "sent": "Enviado",
+    "queued": "Agendado na caixa de saída, será enviado automaticamente",
+    "draft": "Salvo como rascunho na caixa de saída",
+    "failed": "Falha no envio, veja a caixa de saída",
+    "title": "Caixa de saída",
+    "hint": "E-mails e cartas enviados (incl. cobranças, confirmações do locador, prestações de contas) são enviados automaticamente após este atraso. Até lá podem ser retidos ou enviados imediatamente. Notificações do sistema não são afetadas.",
+    "delay": "Atraso (minutos, 0 = imediato)",
+    "manual": "Enviar só manualmente pela caixa de saída",
+    "save": "Salvar",
+    "saved": "Salvo",
+    "hold": "Reter",
+    "sendNow": "Enviar agora",
+    "at": "Envio {at}",
+    "infoManual": "As mensagens ficam como rascunho na caixa de saída até serem enviadas de lá.",
+    "infoNow": "As mensagens são enviadas imediatamente.",
+    "infoDelay": "As mensagens são entregues automaticamente {min} minutos após o envio e podem ser retidas até lá."
   }
 }

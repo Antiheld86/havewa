@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/signature-pad";
 import { sendWohnungsgeber } from "@/server/actions/email";
 import type { ActionState } from "@/lib/schemas";
-import { toast } from "sonner";
+import { outboxToast } from "@/components/outbox-toast";
 
 // Wohnungsgeberbestätigung (#41/#55): Wohnungsgeber prüfen, Ort/Datum (vorausgefüllt),
 // digital unterschreiben, dann als PDF öffnen oder direkt per E-Mail an die Mieter senden.
@@ -30,12 +30,13 @@ export function WohnungsgeberDialog({
   renterEmails: string[];
 }) {
   const t = useTranslations("leases");
+  const tRoot = useTranslations();
   const [open, setOpen] = useState(false);
   const [state, sendAction, sending] = useActionState<ActionState, FormData>(sendWohnungsgeber, {});
   useEffect(() => {
     if (state.ok) {
       setOpen(false);
-      toast.success(t("wgSent"));
+      outboxToast(tRoot, state.notice, t("wgSent"));
     }
   }, [state]);
 

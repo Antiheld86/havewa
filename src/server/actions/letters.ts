@@ -12,9 +12,10 @@ import { pingenPing } from "@/lib/adapters/pingen";
 import { epostPing } from "@/lib/adapters/epost";
 import { MAX_RECIPIENT_LINES } from "@/server/letter-pdf";
 import {
-  buildLetterPdf, submitLetter, refreshLetterStatus, letterProviders, setLetterStatus, letterAttachmentDocs,
+  buildLetterPdf, refreshLetterStatus, letterProviders, setLetterStatus, letterAttachmentDocs,
   type LetterProvider, type LetterOptions,
 } from "@/server/letters";
+import { deliverLetter, queueLetter } from "@/server/outbox";
 
 // Briefe (#58): erstellen (PDF, DIN 5008), ablegen und per Pingen oder Deutscher Post versenden.
 
@@ -36,16 +37,6 @@ function optionsOf(fd: FormData, provider: LetterProvider): LetterOptions {
       ? { product: mode === "fast" ? "fast" : mode === "registered" ? "registered" : "cheap" }
       : { registered: mode === "registered" ? "Einwurf Einschreiben" : null }),
   };
-}
-
-async function send(tenantId: string, letterId: string, provider: LetterProvider, o: LetterOptions, testEmail?: string) {
-  try {
-    await submitLetter(tenantId, letterId, provider, o, testEmail);
-    return null;
-  } catch (e) {
-    await setLetterStatus(letterId, "FEHLER", errMsg(e).slice(0, 500), { provider });
-    return errMsg(e);
-  }
 }
 
 export async function createLetter(_p: ActionState, fd: FormData): Promise<ActionState> {
@@ -77,11 +68,15 @@ export async function createLetter(_p: ActionState, fd: FormData): Promise<Actio
   });
   await audit(user, "CREATE", "Letter", letter.id, subject);
 
+  // Mit Versandweg: über den Postausgang einplanen (#79), sonst nur PDF
   const provider = providerOf(fd);
-  const error = provider ? await send(user.tenantId, letter.id, provider, optionsOf(fd, provider), user.email ?? undefined) : null;
+  const notice = provider ? await queueLetter(user.tenantId, letter.id, provider, optionsOf(fd, provider), user) : undefined;
   revalidatePath("/", "layout");
-  return error ? { error } : { ok: true };
+  return notice === "failed" ? { error: await letterError(letter.id) } : { ok: true, notice };
 }
+
+const letterError = async (id: string) =>
+  (await prisma.letter.findUnique({ where: { id }, select: { statusText: true } }))?.statusText ?? "Versand fehlgeschlagen";
 
 /** Bereits erstellten Brief (Entwurf oder fehlgeschlagen) versenden. */
 export async function sendLetter(_p: ActionState, fd: FormData): Promise<ActionState> {
@@ -92,10 +87,34 @@ export async function sendLetter(_p: ActionState, fd: FormData): Promise<ActionS
   const letter = await prisma.letter.findFirst({ where: { id, tenantId: user.tenantId }, select: { status: true } });
   if (!letter) return { error: "Brief nicht gefunden" };
   if (letter.status !== "ENTWURF" && letter.status !== "FEHLER") return { error: "Brief wurde bereits eingereicht" };
-  const error = await send(user.tenantId, id, provider, optionsOf(fd, provider), user.email ?? undefined);
+  const notice = await queueLetter(user.tenantId, id, provider, optionsOf(fd, provider), user);
   await audit(user, "UPDATE", "Letter", id, `Versand ${provider}`);
   revalidatePath("/", "layout");
-  return error ? { error } : { ok: true };
+  return notice === "failed" ? { error: await letterError(id) } : { ok: true, notice };
+}
+
+/** Geplanten Brief sofort einreichen (#79), mit dem beim Einplanen gewählten Versandweg. */
+export async function sendLetterNow(fd: FormData): Promise<void> {
+  const user = await requireWriter();
+  const id = str(fd.get("id"));
+  const letter = await prisma.letter.findFirst({ where: { id, tenantId: user.tenantId, status: "GEPLANT" }, select: { provider: true, options: true } });
+  if (!letter || (letter.provider !== "PINGEN" && letter.provider !== "EPOST")) return;
+  const { count } = await prisma.letter.updateMany({ where: { id, status: "GEPLANT" }, data: { status: "ENTWURF" } });
+  if (!count) return; // der Hintergrundjob war schneller
+  await deliverLetter(user.tenantId, id, letter.provider, (letter.options ?? {}) as LetterOptions, user.email ?? undefined);
+  await audit(user, "UPDATE", "Letter", id, `Versand ${letter.provider}`);
+  revalidatePath("/", "layout");
+}
+
+/** Geplanten Brief anhalten: bleibt Entwurf, bis er erneut versendet wird. */
+export async function holdLetter(fd: FormData): Promise<void> {
+  const user = await requireWriter();
+  const id = str(fd.get("id"));
+  const letter = await prisma.letter.findFirst({ where: { id, tenantId: user.tenantId, status: "GEPLANT" }, select: { id: true } });
+  if (!letter) return;
+  await setLetterStatus(id, "ENTWURF", "angehalten", { scheduledAt: null });
+  await audit(user, "UPDATE", "Letter", id, "angehalten");
+  revalidatePath("/", "layout");
 }
 
 export async function refreshLetters(_p: ActionState, _fd: FormData): Promise<ActionState> {

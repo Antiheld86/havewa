@@ -18,6 +18,7 @@ import { audit } from "@/lib/audit";
 import { saveFile } from "@/lib/storage";
 import { money } from "@/lib/format";
 import { dunningFor } from "@/server/dunning";
+import { queueEmails } from "@/server/outbox";
 
 // Standard-Kontenrahmen für den Mandanten anlegen (idempotent).
 export async function seedDefaultAccounts(): Promise<void> {
@@ -277,7 +278,7 @@ export async function emailDunning(_p: ActionState, fd: FormData): Promise<Actio
       storageKey,
     },
   });
-  await prisma.emailMessage.create({
+  const msg = await prisma.emailMessage.create({
     data: {
       tenantId: user.tenantId,
       toAddress: renter.email,
@@ -287,7 +288,8 @@ export async function emailDunning(_p: ActionState, fd: FormData): Promise<Actio
       attachments: { create: [{ documentId: doc.id }] },
     },
   });
-  await audit(user, "CREATE", "EmailMessage", null, `${title} ${lease.unit.label}`);
+  await audit(user, "CREATE", "EmailMessage", msg.id, `${title} ${lease.unit.label}`);
+  const notice = await queueEmails(user.tenantId, [msg.id], user);
   revalidatePath("/", "layout");
-  return { ok: true };
+  return { ok: true, notice };
 }

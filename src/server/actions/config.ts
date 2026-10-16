@@ -29,6 +29,23 @@ export async function updateTenantName(_p: ActionState, fd: FormData): Promise<A
   return { ok: true };
 }
 
+// --- Postausgang (#79) ---
+
+export async function updateOutboxConfig(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireRole(["ADMIN"]);
+  let outboxDelayMin: number | null = null;
+  if (fd.get("manual") !== "on") {
+    outboxDelayMin = Number(str(fd.get("outboxDelayMin")) ?? "0");
+    if (!Number.isInteger(outboxDelayMin) || outboxDelayMin < 0 || outboxDelayMin > 1440) {
+      return { error: "Verzögerung: 0 bis 1440 Minuten" };
+    }
+  }
+  await prisma.tenant.update({ where: { id: user.tenantId }, data: { outboxDelayMin } });
+  await audit(user, "UPDATE", "Tenant", user.tenantId, `Postausgang: ${outboxDelayMin ?? "manuell"}`);
+  revalidatePath("/", "layout");
+  return { ok: true };
+}
+
 // --- Abrechnungs-Standards ---
 
 export async function updateStatementDefaults(_p: ActionState, fd: FormData): Promise<ActionState> {

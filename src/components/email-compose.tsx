@@ -75,7 +75,12 @@ export function EmailCompose({
       }
       title={triggerLabel ?? t("email.compose")}
       action={createEmail}
-      submitLabel={t("email.saveToOutbox")}
+      submitLabel={t("email.send")}
+      extraActions={
+        <Button type="submit" variant="outline" name="intent" value="draft">
+          {t("email.saveDraft")}
+        </Button>
+      }
     >
       {replyTo && (
         <>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Printer, Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { outboxToast } from "@/components/outbox-toast";
 import { createDunning, emailDunning } from "@/server/actions/finances";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +32,7 @@ export function DunningDialog({
   hasEmail: boolean;
 }) {
   const t = useTranslations("finances");
+  const tRoot = useTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState(false);
@@ -79,7 +81,7 @@ export function DunningDialog({
         toast.error(res.error);
         return;
       }
-      toast.success(t("dunEmailed"));
+      outboxToast(tRoot, res.notice, t("dunEmailed"));
       onOpenChange(false);
       router.refresh();
     });

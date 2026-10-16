@@ -1168,10 +1168,12 @@
     "importAttachment": "Import attachment as document",
     "imported": "Imported",
     "attachmentsShort": "Attachments",
-    "deleteThreadDesc": "All incoming and outgoing emails in this conversation are deleted. Documents already imported are kept."
+    "deleteThreadDesc": "All incoming and outgoing emails in this conversation are deleted. Documents already imported are kept.",
+    "saveDraft": "Save as draft"
   },
   "emailStatus": {
     "ENTWURF": "Draft",
+    "GEPLANT": "Scheduled",
     "GESENDET": "Sent",
     "FEHLER": "Error"
   },
@@ -1272,9 +1274,28 @@
   },
   "letterStatus": {
     "ENTWURF": "Created",
+    "GEPLANT": "Scheduled",
     "EINGEREICHT": "Submitted",
     "VERSENDET": "Mailed",
     "ZUGESTELLT": "Delivered",
     "FEHLER": "Error"
+  },
+  "outbox": {
+    "sent": "Sent",
+    "queued": "Scheduled in the outbox, will be sent automatically",
+    "draft": "Saved as draft in the outbox",
+    "failed": "Sending failed, see the outbox for details",
+    "title": "Outbox",
+    "hint": "Outgoing emails and letters (including dunning letters, landlord confirmations, statements) are sent automatically after this delay. Until then they can be held or sent right away from the outbox. System notifications are not affected.",
+    "delay": "Delay (minutes, 0 = immediately)",
+    "manual": "Only send manually from the outbox",
+    "save": "Save",
+    "saved": "Saved",
+    "hold": "Hold",
+    "sendNow": "Send now",
+    "at": "Sending {at}",
+    "infoManual": "Messages stay as drafts in the outbox until sent from there.",
+    "infoNow": "Messages are sent immediately.",
+    "infoDelay": "Messages are delivered automatically {min} minutes after sending and can be held until then."
   }
 }

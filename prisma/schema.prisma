@@ -132,6 +132,10 @@ model Tenant {
   smtpFrom     String?
   smtpSecure   Boolean @default(false)
 
+  // Postausgang (#79): Versandverzögerung in Minuten für E-Mails und Briefe;
+  // 0 = sofort, null = nur manuell aus dem Postausgang
+  outboxDelayMin Int? @default(10)
+
   // IMAP-Postfach für eingehende Mails (Kommunikationsverlauf, #39)
   imapHost     String?
   imapPort     Int?
@@ -1055,6 +1059,7 @@ model AuditLog {
 
 enum LetterStatus {
   ENTWURF // nur PDF erstellt
+  GEPLANT // im Postausgang, Versand nach Verzögerung (#79)
   EINGEREICHT // an den Anbieter übergeben, in Bearbeitung
   VERSENDET // gedruckt und an die Post übergeben
   ZUGESTELLT
@@ -1079,6 +1084,7 @@ model Letter {
   status     LetterStatus @default(ENTWURF)
   statusText String? // Status/Fehler im Wortlaut des Anbieters
   sentAt     DateTime?
+  scheduledAt DateTime? // geplanter Versand (#79)
   sentById   String?
   statusEvents LetterStatusEvent[]
   createdAt  DateTime     @default(now())
@@ -1101,6 +1107,7 @@ model LetterStatusEvent {
 
 enum EmailStatus {
   ENTWURF
+  GEPLANT // im Postausgang, Versand nach Verzögerung (#79)
   GESENDET
   FEHLER
 }
@@ -1117,6 +1124,7 @@ model EmailMessage {
   status      EmailStatus       @default(ENTWURF)
   error       String?
   sentAt      DateTime?
+  scheduledAt DateTime? // geplanter Versand (#79)
   sentById    String? // Benutzer, der die Mail versendet hat (#44)
   sentBy      User?             @relation(fields: [sentById], references: [id], onDelete: SetNull)
   messageId   String? // eigene Message-ID, beim Versand gesetzt (#43)

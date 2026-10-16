@@ -1,5 +1,5 @@
 import { getTranslations, getLocale } from "next-intl/server";
-import { Send, Mail, Paperclip, Reply, Check, CircleDot, FileText } from "lucide-react";
+import { Send, Mail, Paperclip, Reply, Check, CircleDot, FileText, Pause } from "lucide-react";
 import { requireUser, roleAllows, WRITE_ROLES } from "@/lib/rbac";
 import { Link } from "@/i18n/navigation";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +22,7 @@ import { EmailCompose } from "@/components/email-compose";
 import { BulkEmailDialog } from "@/components/bulk-email-dialog";
 import { EmailViewDialog } from "@/components/email-view-dialog";
 import { DeleteButton } from "@/components/delete-button";
-import { sendEmail, deleteEmail } from "@/server/actions/email";
+import { sendEmail, deleteEmail, holdEmail } from "@/server/actions/email";
 import { setInboundFlag, deleteInboundEmail } from "@/server/actions/inbound";
 import { AttachmentImportProvider } from "@/components/mail-attachments";
 import { fromInbound, fromOutbound } from "@/lib/mail-attachments";
@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { listThreads } from "@/lib/threads";
 import { threadKey } from "@/lib/inbound";
 import { LetterDialog, LetterSendDialog, LetterRefreshButton } from "@/components/letter-dialogs";
-import { deleteLetter } from "@/server/actions/letters";
+import { deleteLetter, sendLetterNow, holdLetter } from "@/server/actions/letters";
 import { configuredProviders, letterRecipients, senderLines } from "@/server/letters";
 
 // Kommunikation (#43): Unterhaltungen (Threads), Posteingang (IMAP-Import),
@@ -54,7 +54,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
     }),
     prisma.tenant.findUnique({
       where: { id: user.tenantId },
-      select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpFrom: true, smtpSecure: true, imapHost: true, imapUser: true, address: true },
+      select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpFrom: true, smtpSecure: true, imapHost: true, imapUser: true, address: true, outboxDelayMin: true },
     }),
     prisma.person.findMany({
       where: { tenantId: user.tenantId, email: { not: null } },
@@ -124,7 +124,31 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
   });
 
   const statusVariant = (s: string) =>
-    s === "GESENDET" ? "secondary" : s === "FEHLER" ? "destructive" : "outline";
+    s === "GESENDET" ? "secondary" : s === "FEHLER" ? "destructive" : s === "GEPLANT" ? "default" : "outline";
+  // Postausgang (#79): geplante Nachricht anhalten bzw. sofort senden
+  const holdForm = (action: (fd: FormData) => Promise<void>, id: string) => (
+    <form action={action}>
+      <input type="hidden" name="id" value={id} />
+      <Button type="submit" variant="ghost" size="icon" aria-label={t("outbox.hold")} title={t("outbox.hold")}>
+        <Pause className="size-4" />
+      </Button>
+    </form>
+  );
+  const sendNowForm = (action: (fd: FormData) => Promise<void>, id: string) => (
+    <form action={action}>
+      <input type="hidden" name="id" value={id} />
+      <Button type="submit" variant="ghost" size="sm" title={t("outbox.sendNow")}>
+        <Send className="size-4" />
+        {t("outbox.sendNow")}
+      </Button>
+    </form>
+  );
+  const delayMin = tenant?.outboxDelayMin ?? null;
+  const outboxInfo = (
+    <p className="text-xs text-muted-foreground">
+      {delayMin === null ? t("outbox.infoManual") : delayMin === 0 ? t("outbox.infoNow") : t("outbox.infoDelay", { min: delayMin })}
+    </p>
+  );
 
   return (
     <AttachmentImportProvider options={importOptions}>
@@ -346,6 +370,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
           {t("email.noSmtp")}
         </div>
       )}
+      {outboxInfo}
 
       <Card>
         <CardContent className="p-0">
@@ -387,6 +412,9 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusVariant(m.status)}>{t(`emailStatus.${m.status}`)}</Badge>
+                      {m.status === "GEPLANT" && m.scheduledAt && (
+                        <div className="mt-0.5 text-xs text-muted-foreground">{t("outbox.at", { at: dateTime(m.scheduledAt, df) })}</div>
+                      )}
                       {m.error ? <span className="ml-2 text-xs text-destructive">{m.error}</span> : null}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -404,7 +432,8 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                             attachments: m.attachments.map(fromOutbound),
                           }}
                         />
-                        {m.status !== "GESENDET" && (
+                        {m.status === "GEPLANT" && holdForm(holdEmail, m.id)}
+                        {m.status === "GEPLANT" ? sendNowForm(sendEmail, m.id) : m.status !== "GESENDET" && (
                           <form action={sendEmail}>
                             <input type="hidden" name="id" value={m.id} />
                             <Button type="submit" variant="ghost" size="sm">
@@ -425,6 +454,8 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
       </Card>
       </>
       ) : box === "letters" ? (
+        <>
+        {outboxInfo}
         <Card>
           <CardContent className="p-0">
             {letters.length === 0 ? (
@@ -464,9 +495,12 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                         </TableCell>
                         <TableCell className="whitespace-normal">
                           <span className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant={l.status === "FEHLER" ? "destructive" : l.status === "ENTWURF" ? "outline" : "secondary"}>
+                            <Badge variant={l.status === "FEHLER" ? "destructive" : l.status === "ENTWURF" ? "outline" : l.status === "GEPLANT" ? "default" : "secondary"}>
                               {t(`letterStatus.${l.status}`)}
                             </Badge>
+                            {l.status === "GEPLANT" && l.scheduledAt && (
+                              <span className="text-xs text-muted-foreground">{t("outbox.at", { at: dateTime(l.scheduledAt, df) })}</span>
+                            )}
                             {l.provider && <span className="text-xs text-muted-foreground">{t(`letters.provider_${l.provider}`)}</span>}
                             {test && <Badge variant="outline">{t("letters.testMode")}</Badge>}
                           </span>
@@ -502,6 +536,12 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
                                 <FileText className="size-4" />
                               </Button>
                             )}
+                            {canWrite && l.status === "GEPLANT" && (
+                              <>
+                                {holdForm(holdLetter, l.id)}
+                                {sendNowForm(sendLetterNow, l.id)}
+                              </>
+                            )}
                             {canWrite && letterProviders.length > 0 && (l.status === "ENTWURF" || l.status === "FEHLER") && (
                               <LetterSendDialog id={l.id} providers={letterProviders} />
                             )}
@@ -516,6 +556,7 @@ export default async function EmailPage({ searchParams }: { searchParams: Promis
             )}
           </CardContent>
         </Card>
+        </>
       ) : null}
     </div>
     </AttachmentImportProvider>

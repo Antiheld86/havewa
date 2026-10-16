@@ -9,4 +9,6 @@ export async function register() {
   startBankScheduler();
   const { startLetterScheduler } = await import("./lib/letter-scheduler");
   startLetterScheduler();
+  const { startOutboxScheduler } = await import("./lib/outbox-scheduler");
+  startOutboxScheduler();
 }

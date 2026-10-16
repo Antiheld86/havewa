@@ -4,14 +4,13 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireWriter } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
-import { sendMail, isMailerConfigured, smtpFromAddress, type MailAttachment } from "@/lib/adapters/mailer";
-import { readFile, saveFile } from "@/lib/storage";
+import { deliverEmail, queueEmails } from "@/server/outbox";
 import { emailSchema, type ActionState } from "@/lib/schemas";
 import { renderTemplate } from "@/lib/template";
 import { sanitizeMailHtml, isEmptyHtml } from "@/server/mail-sanitize";
 import { htmlToText, escapeHtml, textToHtml } from "@/lib/mail-html";
 import { fileWohnungsgeber, wohnungsgeberPdf } from "@/server/wohnungsgeber";
-import { messageIdFor, refIds, threadKey } from "@/lib/inbound";
+import { refIds, threadKey } from "@/lib/inbound";
 import { threadWhere } from "@/lib/threads";
 
 /**
@@ -41,9 +40,6 @@ async function replyContext(tenantId: string, kind: string, id: string) {
   return { threadId, references: refs.join(" ") || null };
 }
 
-const addrList = (s: string | undefined | null) =>
-  (s ?? "").split(/[,;]/).map((a) => a.trim()).filter(Boolean);
-
 export async function createEmail(_p: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireWriter();
   // Formatierte Nachricht (#56): HTML bereinigen, Text-Variante serverseitig ableiten.
@@ -71,76 +67,27 @@ export async function createEmail(_p: ActionState, fd: FormData): Promise<Action
     },
   });
   await audit(user, "CREATE", "EmailMessage", msg.id, r.data.subject);
+  // „Senden“ plant die Mail ein (#79), „Als Entwurf speichern“ lässt sie liegen
+  const notice = fd.get("intent") === "draft" ? "draft" : await queueEmails(user.tenantId, [msg.id], user);
   revalidatePath("/", "layout");
-  return { ok: true };
+  return { ok: true, notice };
 }
 
-async function smtpConfig(tenantId: string) {
-  const t = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: {
-      smtpHost: true, smtpPort: true, smtpUser: true,
-      smtpPassword: true, smtpFrom: true, smtpSecure: true,
-    },
-  });
-  return {
-    host: t?.smtpHost, port: t?.smtpPort, user: t?.smtpUser,
-    password: t?.smtpPassword, from: t?.smtpFrom, secure: t?.smtpSecure,
-  };
-}
-
+/** Aus dem Postausgang sofort senden (auch geplante oder fehlgeschlagene Mails). */
 export async function sendEmail(fd: FormData): Promise<void> {
   const user = await requireWriter();
   const id = String(fd.get("id") ?? "");
-  const msg = await prisma.emailMessage.findFirst({
-    where: { id, tenantId: user.tenantId },
-    include: { attachments: { include: { document: true } } },
-  });
-  if (!msg) return;
+  await prisma.emailMessage.updateMany({ where: { id, tenantId: user.tenantId, status: "GEPLANT" }, data: { status: "ENTWURF" } });
+  await deliverEmail(user.tenantId, id, user);
+  revalidatePath("/", "layout");
+}
 
-  const cfg = await smtpConfig(user.tenantId);
-  const messageId = msg.messageId ?? messageIdFor(msg.id, smtpFromAddress(cfg));
-  try {
-    // Anhänge aus der Dokumentenablage laden.
-    const attachments: MailAttachment[] = [];
-    for (const a of msg.attachments) {
-      try {
-        attachments.push({ filename: a.document.name, content: await readFile(a.document.storageKey) });
-      } catch {
-        // fehlende Datei überspringen
-      }
-    }
-    await sendMail(
-      {
-        to: addrList(msg.toAddress),
-        cc: addrList(msg.cc),
-        bcc: addrList(msg.bcc),
-        subject: msg.subject,
-        body: msg.body,
-        html: msg.html,
-        attachments,
-        messageId,
-        references: refIds(msg.references),
-      },
-      cfg,
-    );
-    await prisma.emailMessage.update({
-      where: { id: msg.id },
-      data: { status: "GESENDET", sentAt: new Date(), error: null, sentById: user.id, messageId },
-    });
-    await audit(
-      user,
-      "UPDATE",
-      "EmailMessage",
-      msg.id,
-      isMailerConfigured(cfg) ? "gesendet" : "in Postausgang gestellt (kein SMTP)",
-    );
-  } catch (e) {
-    await prisma.emailMessage.update({
-      where: { id: msg.id },
-      data: { status: "FEHLER", error: e instanceof Error ? e.message : "Versand fehlgeschlagen" },
-    });
-  }
+/** Geplante Mail anhalten (#79): zurück zum Entwurf, kein automatischer Versand. */
+export async function holdEmail(fd: FormData): Promise<void> {
+  const user = await requireWriter();
+  const id = String(fd.get("id") ?? "");
+  await prisma.emailMessage.updateMany({ where: { id, tenantId: user.tenantId, status: "GEPLANT" }, data: { status: "ENTWURF", scheduledAt: null } });
+  await audit(user, "UPDATE", "EmailMessage", id, "angehalten");
   revalidatePath("/", "layout");
 }
 
@@ -220,17 +167,21 @@ export async function bulkEmail(_p: ActionState, fd: FormData): Promise<ActionSt
   });
 
   // Nicht createMany: Anhänge sind eine verschachtelte Relation, daher je Mail.
+  const ids: string[] = [];
   for (const row of rows) {
-    await prisma.emailMessage.create({
+    const { id } = await prisma.emailMessage.create({
       data: {
         ...row,
         ...(docIds.length ? { attachments: { create: docIds.map((documentId) => ({ documentId })) } } : {}),
       },
+      select: { id: true },
     });
+    ids.push(id);
   }
   await audit(user, "CREATE", "EmailMessage", null, `Serien-Mail (${rows.length})`);
+  const notice = await queueEmails(user.tenantId, ids, user);
   revalidatePath("/", "layout");
-  return { ok: true };
+  return { ok: true, notice };
 }
 
 export async function deleteEmail(fd: FormData): Promise<void> {
@@ -272,10 +223,11 @@ export async function sendWohnungsgeber(_p: ActionState, fd: FormData): Promise<
     },
   });
   await audit(user, "CREATE", "EmailMessage", msg.id, "Wohnungsgeberbestätigung");
-  const sendFd = new FormData();
-  sendFd.set("id", msg.id);
-  await sendEmail(sendFd);
-  const sent = await prisma.emailMessage.findUnique({ where: { id: msg.id }, select: { status: true, error: true } });
-  if (sent?.status === "FEHLER") return { error: `Versand fehlgeschlagen: ${sent.error ?? ""}` };
-  return { ok: true };
+  const notice = await queueEmails(user.tenantId, [msg.id], user);
+  revalidatePath("/", "layout");
+  if (notice === "failed") {
+    const sent = await prisma.emailMessage.findUnique({ where: { id: msg.id }, select: { error: true } });
+    return { error: `Versand fehlgeschlagen: ${sent?.error ?? ""}` };
+  }
+  return { ok: true, notice };
 }

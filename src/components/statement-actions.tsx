@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { outboxToast } from "@/components/outbox-toast";
 import { Coins, Mail } from "lucide-react";
 import { bookStatementCharges, emailStatementToTenants } from "@/server/actions/statement-actions";
 import type { ActionState } from "@/lib/schemas";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 
 export function StatementActions({ propertyId, year }: { propertyId: string; year: number }) {
   const t = useTranslations("statements");
+  const tRoot = useTranslations();
   const [bookState, book, booking] = useActionState<ActionState, FormData>(bookStatementCharges, {});
   const [mailState, mail, mailing] = useActionState<ActionState, FormData>(emailStatementToTenants, {});
 
@@ -18,7 +20,7 @@ export function StatementActions({ propertyId, year }: { propertyId: string; yea
     else if (bookState.error) toast.error(bookState.error);
   }, [bookState, t]);
   useEffect(() => {
-    if (mailState.ok) toast.success(t("mailed"));
+    if (mailState.ok) outboxToast(tRoot, mailState.notice, t("mailed"));
     else if (mailState.error) toast.error(mailState.error);
   }, [mailState, t]);
 

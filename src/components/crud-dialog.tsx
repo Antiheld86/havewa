@@ -4,7 +4,7 @@ import * as React from "react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { toast } from "sonner";
+import { outboxToast } from "@/components/outbox-toast";
 import type { ActionState } from "@/lib/schemas";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,15 +23,18 @@ export function CrudDialog({
   title,
   action,
   submitLabel,
+  extraActions,
   children,
 }: {
   trigger: React.ReactElement;
   title: string;
   action: Action;
   submitLabel?: string;
+  extraActions?: React.ReactNode; // weitere Submit-Buttons, z. B. „Als Entwurf speichern“
   children: React.ReactNode;
 }) {
   const t = useTranslations("common");
+  const tRoot = useTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // Wirft die Server-Action (statt {error} zurückzugeben), blieb der Dialog
@@ -56,7 +59,7 @@ export function CrudDialog({
     if (state.ok && handledState.current !== state) {
       handledState.current = state;
       setOpen(false);
-      toast.success(t("saved"));
+      outboxToast(tRoot, state.notice, t("saved"));
       router.refresh(); // abhängige Übersichten sofort aktualisieren
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,6 +77,7 @@ export function CrudDialog({
           {children}
           {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           <DialogFooter>
+            {extraActions}
             <Button type="submit" disabled={pending}>
               {submitLabel ?? t("save")}
             </Button>

@@ -2,7 +2,8 @@ import { z } from "zod";
 import { routing } from "@/i18n/routing";
 import { normalizePostalAddress, postalAddressError } from "@/lib/postal-address";
 
-export type ActionState = { ok?: boolean; error?: string };
+// notice: Ergebnis des Postausgangs (#79) für die Rückmeldung im Dialog
+export type ActionState = { ok?: boolean; error?: string; notice?: "sent" | "queued" | "draft" | "failed" };
 
 const optionalStr = z
   .string()

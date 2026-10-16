@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { outboxToast } from "@/components/outbox-toast";
 import { FileText, Paperclip, Plus, Send, TriangleAlert, RefreshCw, Eye } from "lucide-react";
 import { createLetter, sendLetter, refreshLetters } from "@/server/actions/letters";
 import type { ActionState } from "@/lib/schemas";
@@ -114,6 +115,7 @@ export function LetterDialog({
 }) {
   const t = useTranslations("letters");
   const tc = useTranslations("common");
+  const tRoot = useTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [personId, setPersonId] = useState("");
@@ -125,7 +127,7 @@ export function LetterDialog({
   const [state, action, pending] = useActionState<ActionState, FormData>(safe(createLetter, tc("actionFailed")), {});
   useDone(state, () => {
     setOpen(false);
-    toast.success(t(provider ? "sent" : "created"));
+    outboxToast(tRoot, state.notice, t(provider ? "sent" : "created"));
     router.refresh();
   });
 
@@ -252,12 +254,13 @@ export function LetterDialog({
 export function LetterSendDialog({ id, providers }: { id: string; providers: ProviderInfo[] }) {
   const t = useTranslations("letters");
   const tc = useTranslations("common");
+  const tRoot = useTranslations();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [state, action, pending] = useActionState<ActionState, FormData>(safe(sendLetter, tc("actionFailed")), {});
   useDone(state, () => {
     setOpen(false);
-    toast.success(t("sent"));
+    outboxToast(tRoot, state.notice, t("sent"));
     router.refresh();
   });
   return (

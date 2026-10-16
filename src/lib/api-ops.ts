@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { roleAllows, WRITE_ROLES } from "@/lib/rbac";
 import type { ApiPrincipal } from "@/lib/api-auth";
 import { ApiWriteError } from "@/lib/api-write";
-import { sendMail, type MailAttachment } from "@/lib/adapters/mailer";
-import { readFile, saveFile } from "@/lib/storage";
+import { saveFile } from "@/lib/storage";
+import { deliverEmail } from "@/server/outbox";
 import { parseCamt053 } from "@/lib/adapters/bankImport";
 import { isEInvoice, parseEInvoice } from "@/lib/adapters/erechnung";
 
@@ -69,14 +69,6 @@ export async function generateAreaCharges(tenantId: string, first: Date, due: Da
   return created;
 }
 
-async function smtpConfig(tenantId: string) {
-  const t = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { smtpHost: true, smtpPort: true, smtpUser: true, smtpPassword: true, smtpFrom: true, smtpSecure: true },
-  });
-  return { host: t?.smtpHost, port: t?.smtpPort, user: t?.smtpUser, password: t?.smtpPassword, from: t?.smtpFrom, secure: t?.smtpSecure };
-}
-const addrList = (v: unknown) => String(v ?? "").split(/[,;]/).map((x) => x.trim()).filter(Boolean);
 
 export const OPERATIONS: Record<string, Op> = {
   run_charge_generation: {
@@ -242,22 +234,11 @@ export const OPERATIONS: Record<string, Op> = {
           tenantId: p.tenantId, toAddress, cc: s(a.cc) ?? null, bcc: s(a.bcc) ?? null, subject, body,
           status: "ENTWURF", attachments: { create: docIds.map((documentId) => ({ documentId })) },
         },
-        include: { attachments: { include: { document: true } } },
+        select: { id: true },
       });
-      const cfg = await smtpConfig(p.tenantId);
-      try {
-        const attachments: MailAttachment[] = [];
-        for (const at of msg.attachments) {
-          try { attachments.push({ filename: at.document.name, content: await readFile(at.document.storageKey) }); } catch { /* fehlt */ }
-        }
-        await sendMail({ to: addrList(msg.toAddress), cc: addrList(msg.cc), bcc: addrList(msg.bcc), subject, body, attachments }, cfg);
-        await prisma.emailMessage.update({ where: { id: msg.id }, data: { status: "GESENDET", sentAt: new Date(), error: null } });
-        return { id: msg.id, status: "GESENDET" };
-      } catch (e) {
-        const error = e instanceof Error ? e.message : "Versand fehlgeschlagen";
-        await prisma.emailMessage.update({ where: { id: msg.id }, data: { status: "FEHLER", error } });
-        return { id: msg.id, status: "FEHLER", error };
-      }
+      // API sendet bewusst sofort (am Postausgang vorbei, #79)
+      const error = await deliverEmail(p.tenantId, msg.id);
+      return error ? { id: msg.id, status: "FEHLER", error } : { id: msg.id, status: "GESENDET" };
     },
   },
 

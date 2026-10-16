@@ -50,7 +50,7 @@ export function BulkEmailDialog({
       }
       title={t("email.bulk")}
       action={bulkEmail}
-      submitLabel={t("email.saveToOutbox")}
+      submitLabel={t("email.send")}
     >
       <SelectField name="propertyId" label={t("units.property")} options={properties} />
       <SelectField
