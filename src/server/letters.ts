@@ -49,13 +49,18 @@ export function senderLines(address: string | null | undefined) {
   return { lines, city };
 }
 
+/** Telefon (#76) und E-Mail der Verwaltung für Briefkopf und erzeugte Dokumente. */
+export function tenantContact(t: { phone?: string | null; smtpFrom?: string | null } | null | undefined) {
+  return [t?.phone ? `Tel. ${t.phone}` : "", t?.smtpFrom ?? ""].filter(Boolean);
+}
+
 export type LetterDraft = { recipient: string[]; subject: string; body: string; place: string; date: string };
 
 export async function buildLetterPdf(tenantId: string, d: LetterDraft) {
-  const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true, address: true, smtpFrom: true } });
+  const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true, address: true, phone: true, smtpFrom: true } });
   const { lines } = senderLines(t?.address);
   return letterPdf({
-    sender: { name: t?.name ?? "", lines: [...lines, ...(t?.smtpFrom ? [t.smtpFrom] : [])] },
+    sender: { name: t?.name ?? "", lines: [...lines, ...tenantContact(t)] },
     recipient: d.recipient.slice(0, MAX_RECIPIENT_LINES),
     place: d.place,
     date: d.date,

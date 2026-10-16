@@ -35,4 +35,9 @@ describe("dunningDocument (#28)", () => {
     const text = dunningDocument({ ...base, level: 1, fee: 0 }).lines.join("\n");
     expect(text).not.toContain("Mahngebühr");
   });
+
+  it("zeigt Telefon/E-Mail der Verwaltung unter dem Gruß (#76)", () => {
+    const lines = dunningDocument({ ...base, level: 1, tenantContact: ["Tel. 030 123", "info@muster.de"] }).lines;
+    expect(lines.slice(-3)).toEqual(["Verwaltung Muster", "Tel. 030 123", "info@muster.de"]);
+  });
 });

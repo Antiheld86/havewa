@@ -10,7 +10,7 @@ import { emailSchema, type ActionState } from "@/lib/schemas";
 import { renderTemplate } from "@/lib/template";
 import { sanitizeMailHtml, isEmptyHtml } from "@/server/mail-sanitize";
 import { htmlToText, escapeHtml, textToHtml } from "@/lib/mail-html";
-import { wohnungsgeberPdf } from "@/server/wohnungsgeber";
+import { fileWohnungsgeber, wohnungsgeberPdf } from "@/server/wohnungsgeber";
 import { messageIdFor, refIds, threadKey } from "@/lib/inbound";
 import { threadWhere } from "@/lib/threads";
 
@@ -250,18 +250,11 @@ export async function sendWohnungsgeber(_p: ActionState, fd: FormData): Promise<
   const opt = Object.fromEntries([...fd.entries()].map(([k, v]) => [k, String(v)]));
   const res = await wohnungsgeberPdf(user.tenantId, String(fd.get("leaseId") ?? ""), opt);
   if (!res) return { error: "Mietvertrag nicht gefunden" };
-  const { lease, property, pdf } = res;
+  const { lease, property } = res;
   const renters = lease.renters.filter((r) => r.person.email);
   if (renters.length === 0) return { error: "Kein Mieter mit E-Mail-Adresse hinterlegt" };
 
-  const storageKey = await saveFile(pdf, "wohnungsgeberbestaetigung.pdf");
-  const doc = await prisma.document.create({
-    data: {
-      tenantId: user.tenantId, propertyId: property.id, unitId: lease.unitId, personId: renters[0].personId,
-      name: `Wohnungsgeberbestätigung ${property.name} ${lease.unit.label}.pdf`, category: "VERTRAG",
-      mime: "application/pdf", size: pdf.length, storageKey,
-    },
-  });
+  const doc = await fileWohnungsgeber(user.tenantId, res);
   const names = renters.map((r) => `${r.person.firstName} ${r.person.lastName}`).join(", ");
   const text =
     `Guten Tag ${names},\n\nanbei erhalten Sie die Wohnungsgeberbestätigung für Ihre Wohnung ` +

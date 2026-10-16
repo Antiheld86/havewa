@@ -15,10 +15,9 @@ import { parseCamt053 } from "@/lib/adapters/bankImport";
 import { ensureDefaultAccounts } from "@/lib/accounts";
 import { generateAreaCharges } from "@/lib/api-ops";
 import { audit } from "@/lib/audit";
-import { simplePdf } from "@/lib/pdf";
 import { saveFile } from "@/lib/storage";
 import { money } from "@/lib/format";
-import { dunningDocument } from "@/lib/dunning";
+import { dunningFor } from "@/server/dunning";
 
 // Standard-Kontenrahmen für den Mandanten anlegen (idempotent).
 export async function seedDefaultAccounts(): Promise<void> {
@@ -259,46 +258,13 @@ export async function createDunning(_p: ActionState, fd: FormData): Promise<Acti
 export async function emailDunning(_p: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireWriter();
   const chargeId = String(fd.get("chargeId") ?? "");
-  const charge = await prisma.charge.findFirst({
-    where: { id: chargeId, tenantId: user.tenantId },
-    include: {
-      payments: { select: { amount: true } },
-      dunnings: { orderBy: { level: "desc" }, take: 1 },
-      lease: {
-        include: {
-          unit: { include: { building: { include: { property: { include: { tenant: true } } } } } },
-          renters: { include: { person: true } },
-        },
-      },
-    },
-  });
-  if (!charge || !charge.lease) return fail("Sollstellung nicht gefunden");
-
-  const paid = charge.payments.reduce((a, p) => a + Number(p.amount), 0);
-  const open = Number(charge.amount) - paid;
-  const dun = charge.dunnings[0];
-  const fee = dun ? Number(dun.fee) : 0;
-  const level = dun?.level ?? 1;
-  const property = charge.lease.unit.building.property;
-  const renter = charge.lease.renters[0]?.person;
+  const res = await dunningFor(user.tenantId, chargeId);
+  if (!res) return fail("Sollstellung nicht gefunden");
+  const { lease, property, renter, total } = res;
   if (!renter?.email) return fail("Kein Mieter mit E-Mail-Adresse hinterlegt.");
-
-  const built = dunningDocument({
-    level,
-    propertyName: property.name,
-    unitLabel: charge.lease.unit.label,
-    renterName: `${renter.firstName} ${renter.lastName}`,
-    tenantName: property.tenant.name,
-    chargeTypeLabel: charge.type,
-    period: charge.period,
-    dueDate: charge.dueDate,
-    open,
-    fee,
-  });
-  const title = built.title;
-  const total = open + fee;
-  const pdf = simplePdf(title, built.lines);
-  const name = `${title} - ${charge.lease.unit.label}.pdf`;
+  const title = res.doc.title;
+  const pdf = res.pdf();
+  const name = `${title} - ${lease.unit.label}.pdf`;
   const storageKey = await saveFile(pdf, name);
   const doc = await prisma.document.create({
     data: {
@@ -321,7 +287,7 @@ export async function emailDunning(_p: ActionState, fd: FormData): Promise<Actio
       attachments: { create: [{ documentId: doc.id }] },
     },
   });
-  await audit(user, "CREATE", "EmailMessage", null, `${title} ${charge.lease.unit.label}`);
+  await audit(user, "CREATE", "EmailMessage", null, `${title} ${lease.unit.label}`);
   revalidatePath("/", "layout");
   return { ok: true };
 }

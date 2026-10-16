@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function TenantNameForm({ name, address, editable }: { name: string; address: string; editable: boolean }) {
+export function TenantNameForm({ name, address, phone, editable }: { name: string; address: string; phone: string; editable: boolean }) {
   const t = useTranslations("settings");
   const [state, action, pending] = useActionState<ActionState, FormData>(updateTenantName, {});
 
@@ -30,6 +30,10 @@ export function TenantNameForm({ name, address, editable }: { name: string; addr
               <Label htmlFor="tenantAddress">{t("tenantAddress")}</Label>
               <Input id="tenantAddress" name="address" defaultValue={address} placeholder={t("tenantAddressPlaceholder")} />
             </div>
+            <div className="min-w-44 flex-1 space-y-1.5">
+              <Label htmlFor="tenantPhone">{t("tenantPhone")}</Label>
+              <Input id="tenantPhone" name="phone" type="tel" defaultValue={phone} placeholder={t("tenantPhonePlaceholder")} />
+            </div>
             <Button type="submit" disabled={pending}>{t("save")}</Button>
             {state.error && (
               <span className="flex items-center gap-1.5 text-sm text-destructive">
@@ -46,6 +50,7 @@ export function TenantNameForm({ name, address, editable }: { name: string; addr
           <div>
             <div className="text-lg font-medium">{name}</div>
             {address && <div className="text-sm text-muted-foreground">{address}</div>}
+            {phone && <div className="text-sm text-muted-foreground">{phone}</div>}
           </div>
         )}
         {editable && <p className="mt-2 text-xs text-muted-foreground">{t("tenantAddressHint")}</p>}

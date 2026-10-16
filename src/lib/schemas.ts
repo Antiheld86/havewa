@@ -409,7 +409,7 @@ export const userEditSchema = z.object({
   personId: optionalStr,
 });
 
-export const DOCUMENT_CATEGORIES = ["VERTRAG", "RECHNUNG", "ERECHNUNG", "PROTOKOLL", "ABRECHNUNG", "EMAIL_ANHANG", "BRIEF", "SONSTIGES"] as const;
+export const DOCUMENT_CATEGORIES = ["VERTRAG", "RECHNUNG", "ERECHNUNG", "PROTOKOLL", "ABRECHNUNG", "EMAIL_ANHANG", "BRIEF", "BESCHEINIGUNG", "SONSTIGES"] as const;
 
 export const documentEditSchema = z.object({
   name: z.string().trim().min(1),

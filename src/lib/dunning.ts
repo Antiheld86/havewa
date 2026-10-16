@@ -6,6 +6,7 @@ export interface DunningInput {
   unitLabel: string;
   renterName: string;
   tenantName: string; // Vermieter/Verwaltung (Mandant)
+  tenantContact?: string[]; // Telefon/E-Mail der Verwaltung (#76)
   chargeTypeLabel: string;
   period: Date;
   dueDate: Date;
@@ -37,6 +38,7 @@ export function dunningDocument(input: DunningInput): { title: string; lines: st
       "",
       "Mit freundlichen Grüßen",
       input.tenantName,
+      ...(input.tenantContact ?? []),
     ],
   };
 }

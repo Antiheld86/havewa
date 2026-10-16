@@ -1,7 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { saveFile } from "@/lib/storage";
 import { simplePdf, jpegSize } from "@/lib/pdf";
 import { wohnungsgeberDocument } from "@/lib/wohnungsgeber";
+import { tenantContact } from "@/server/letters";
 
 export type WgOptions = { name?: string; address?: string; place?: string; signedOn?: string; signature?: string };
 
@@ -24,7 +26,7 @@ export async function wohnungsgeberPdf(tenantId: string, leaseId: string, opt: W
   const lease = await prisma.lease.findFirst({
     where: { id: leaseId, tenantId },
     include: {
-      unit: { include: { building: { include: { property: { include: { tenant: { select: { name: true, address: true } } } } } } } },
+      unit: { include: { building: { include: { property: { include: { tenant: { select: { name: true, address: true, phone: true, smtpFrom: true } } } } } } } },
       renters: { include: { person: true } },
     },
   });
@@ -33,6 +35,7 @@ export async function wohnungsgeberPdf(tenantId: string, leaseId: string, opt: W
   const doc = wohnungsgeberDocument({
     landlordName: clip(opt.name) || property.tenant.name,
     landlordAddress: clip(opt.address) || property.tenant.address || "—",
+    landlordContact: tenantContact(property.tenant),
     tenantNames: lease.renters.map((r) => `${r.person.firstName} ${r.person.lastName}`),
     dwellingAddress: `${property.street}, ${property.zip} ${property.city} · ${property.name} · ${lease.unit.label}`,
     moveInDate: lease.startDate,
@@ -42,4 +45,20 @@ export async function wohnungsgeberPdf(tenantId: string, leaseId: string, opt: W
   const sig = signatureJpeg(opt.signature);
   const pdf = simplePdf(doc.title, doc.lines, sig ? [{ ...sig, line: doc.signatureLine, drawWidth: 170 }] : []);
   return { pdf, lease, property };
+}
+
+/**
+ * Erzeugte Bestätigung in den Dokumenten ablegen (#75): Kategorie Bescheinigung,
+ * verknüpft mit Objekt, Einheit und erstem Mieter.
+ */
+export async function fileWohnungsgeber(tenantId: string, res: NonNullable<Awaited<ReturnType<typeof wohnungsgeberPdf>>>) {
+  const { pdf, lease, property } = res;
+  const storageKey = await saveFile(pdf, "wohnungsgeberbestaetigung.pdf");
+  return prisma.document.create({
+    data: {
+      tenantId, propertyId: property.id, unitId: lease.unitId, personId: lease.renters[0]?.personId ?? null,
+      name: `Wohnungsgeberbestätigung ${property.name} ${lease.unit.label}.pdf`, category: "BESCHEINIGUNG",
+      mime: "application/pdf", size: pdf.length, storageKey,
+    },
+  });
 }

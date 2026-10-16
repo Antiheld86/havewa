@@ -3,6 +3,7 @@ import { date } from "@/lib/format";
 export interface WohnungsgeberInput {
   landlordName: string; // Wohnungsgeber (Vermieter/Verwaltung)
   landlordAddress: string; // Straße, PLZ Ort
+  landlordContact?: string[]; // Telefon/E-Mail (#76)
   tenantNames: string[]; // einziehende Personen
   dwellingAddress: string; // Anschrift der Wohnung
   moveInDate: Date | null; // Einzugsdatum
@@ -24,6 +25,7 @@ export function wohnungsgeberDocument(input: WohnungsgeberInput): { title: strin
       "Wohnungsgeber:",
       input.landlordName,
       input.landlordAddress,
+      ...(input.landlordContact ?? []),
       "",
       "Anschrift der Wohnung:",
       input.dwellingAddress,

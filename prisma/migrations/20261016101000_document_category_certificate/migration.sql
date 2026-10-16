@@ -1,0 +1,1 @@
+ALTER TYPE "DocumentCategory" ADD VALUE 'BESCHEINIGUNG';
