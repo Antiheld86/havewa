@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dunningDocument } from "./dunning";
+import { dunningDocument, dunningLetterBody } from "./dunning";
 
 const base = {
   propertyName: "Haus A",
@@ -39,5 +39,14 @@ describe("dunningDocument (#28)", () => {
   it("zeigt Telefon/E-Mail der Verwaltung unter dem Gruß (#76)", () => {
     const lines = dunningDocument({ ...base, level: 1, tenantContact: ["Tel. 030 123", "info@muster.de"] }).lines;
     expect(lines.slice(-3)).toEqual(["Verwaltung Muster", "Tel. 030 123", "info@muster.de"]);
+  });
+
+  it("Brieftext für den Postversand (#78)", () => {
+    const body = dunningLetterBody({ ...base, level: 2 });
+    expect(body.startsWith("Guten Tag Max Mustermann,")).toBe(true);
+    expect(body).toContain("Haus A · EG Links");
+    expect(body).toContain("Mahngebühr");
+    expect(body).toMatch(/Offener Gesamtbetrag: 805,00\s€/);
+    expect(body.endsWith("Verwaltung Muster")).toBe(true);
   });
 });

@@ -444,7 +444,9 @@
     "wgSending": "Enviando…",
     "wgSent": "Declaração do locador enviada aos inquilinos",
     "wgSendTo": "Envio para: {to}",
-    "wgNoEmail": "Nenhum inquilino com e-mail cadastrado, apenas PDF."
+    "wgNoEmail": "Nenhum inquilino com e-mail cadastrado, apenas PDF.",
+    "wgByLetter": "Enviar por correio",
+    "wgSendLetter": "Enviar por correio"
   },
   "rentComponent": {
     "title": "Componentes do aluguel",
@@ -800,7 +802,8 @@
     "tab_payments": "Movimentações",
     "tab_accounts": "Contas",
     "tab_mandates": "Mandatos SEPA",
-    "tab_io": "Importar/Exportar"
+    "tab_io": "Importar/Exportar",
+    "dunLetter": "Enviar por correio"
   },
   "accountType": {
     "BANK": "Conta bancária",

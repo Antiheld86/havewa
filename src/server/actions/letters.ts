@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireRole, requireWriter } from "@/lib/rbac";
+import { requireRole, requireWriter, type SessionUser } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
 import { encryptSecret } from "@/lib/crypto";
 import { deleteFile, saveFile } from "@/lib/storage";
@@ -12,9 +12,15 @@ import { pingenPing } from "@/lib/adapters/pingen";
 import { epostPing } from "@/lib/adapters/epost";
 import { MAX_RECIPIENT_LINES } from "@/server/letter-pdf";
 import {
-  buildLetterPdf, refreshLetterStatus, letterProviders, setLetterStatus, letterAttachmentDocs,
+  buildLetterPdf, refreshLetterStatus, letterProviders, setLetterStatus, letterAttachmentDocs, letterRecipients, senderLines,
   type LetterProvider, type LetterOptions,
 } from "@/server/letters";
+import { getLocale } from "next-intl/server";
+import { date } from "@/lib/format";
+import { getDateLocale } from "@/lib/date-locale";
+import { dunningLetterBody } from "@/lib/dunning";
+import { dunningFor } from "@/server/dunning";
+import { fileWohnungsgeber, wohnungsgeberPdf } from "@/server/wohnungsgeber";
 import { deliverLetter, queueLetter } from "@/server/outbox";
 
 // Briefe (#58): erstellen (PDF, DIN 5008), ablegen und per Pingen oder Deutscher Post versenden.
@@ -39,6 +45,102 @@ function optionsOf(fd: FormData, provider: LetterProvider): LetterOptions {
   };
 }
 
+/** Brief-PDF erzeugen, als Dokument ablegen und den Brief (Entwurf) anlegen. */
+async function storeLetter(
+  user: SessionUser,
+  l: { personId: string | null; recipient: string[]; subject: string; body: string; place: string; date: string; attachmentIds: string[]; propertyId?: string },
+) {
+  const pdf = await buildLetterPdf(user.tenantId, l);
+  const storageKey = await saveFile(pdf, ".pdf");
+  const doc = await prisma.document.create({
+    data: {
+      tenantId: user.tenantId, personId: l.personId, propertyId: l.propertyId ?? null, category: "BRIEF", mime: "application/pdf", size: pdf.length, storageKey,
+      name: `Brief ${l.subject.replace(/[\\/:*?"<>|]/g, "-").slice(0, 80)}.pdf`,
+    },
+  });
+  const letter = await prisma.letter.create({
+    data: {
+      tenantId: user.tenantId, personId: l.personId, recipient: l.recipient.join("\n"), subject: l.subject, body: l.body, documentId: doc.id, sentById: user.id,
+      statusEvents: { create: { status: "ENTWURF" } },
+      attachments: { connect: l.attachmentIds.map((id) => ({ id })) },
+    },
+  });
+  await audit(user, "CREATE", "Letter", letter.id, l.subject);
+  return letter;
+}
+
+const letterError = async (id: string) =>
+  (await prisma.letter.findUnique({ where: { id }, select: { statusText: true } }))?.statusText ?? "Versand fehlgeschlagen";
+
+/** Mit Versandweg über den Postausgang einplanen (#79), sonst bleibt der Brief Entwurf. */
+async function queueFromForm(user: SessionUser, letterId: string, fd: FormData): Promise<ActionState> {
+  const provider = providerOf(fd);
+  if (!provider) return { ok: true };
+  const notice = await queueLetter(user.tenantId, letterId, provider, optionsOf(fd, provider), user);
+  return notice === "failed" ? { error: await letterError(letterId) } : { ok: true, notice };
+}
+
+/** Anschrift eines Kontakts (eigene Anschrift oder Objekt des laufenden Vertrags), Name zuerst. */
+async function postalAddress(tenantId: string, personId: string) {
+  return (await letterRecipients(tenantId, [personId]))[0]?.address ?? [];
+}
+
+/** Ort/Datum für die Datumszeile, wie im Brief-Dialog vorbelegt. */
+async function placeAndDate(tenantId: string) {
+  const t = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { address: true } });
+  return { place: senderLines(t?.address).city, date: date(new Date(), await getDateLocale(await getLocale())) };
+}
+
+/** Mahnung als Brief (#78): Text der zuletzt erstellten Mahnstufe, an den ersten Mieter. */
+export async function letterDunning(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireWriter();
+  const res = await dunningFor(user.tenantId, str(fd.get("chargeId")));
+  if (!res) return { error: "Sollstellung nicht gefunden" };
+  if (!res.renter) return { error: "Kein Mieter am Vertrag hinterlegt" };
+  const recipient = await postalAddress(user.tenantId, res.renter.id);
+  if (recipient.length < 3) return { error: "Für den Mieter ist keine Anschrift hinterlegt" };
+  const letter = await storeLetter(user, {
+    personId: res.renter.id, propertyId: res.property.id, recipient: recipient.slice(0, MAX_RECIPIENT_LINES),
+    subject: `${res.doc.title} · ${res.property.name} ${res.lease.unit.label}`, body: dunningLetterBody(res.input),
+    ...(await placeAndDate(user.tenantId)), attachmentIds: [],
+  });
+  const out = await queueFromForm(user, letter.id, fd);
+  revalidatePath("/", "layout");
+  return out;
+}
+
+/**
+ * Wohnungsgeberbestätigung als Brief (#78): kurzes Anschreiben an die Mieter, die
+ * (unterschriebene) Bestätigung als Anlage. Die Bestätigung wird zudem abgelegt (#75).
+ */
+export async function letterWohnungsgeber(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireWriter();
+  const opt = Object.fromEntries([...fd.entries()].map(([k, v]) => [k, String(v)]));
+  const res = await wohnungsgeberPdf(user.tenantId, str(fd.get("leaseId")), opt);
+  if (!res) return { error: "Mietvertrag nicht gefunden" };
+  const { lease, property } = res;
+  const first = lease.renters[0]?.person;
+  if (!first) return { error: "Kein Mieter am Vertrag hinterlegt" };
+  const address = await postalAddress(user.tenantId, first.id);
+  if (address.length < 3) return { error: "Für den Mieter ist keine Anschrift hinterlegt" };
+  const names = lease.renters.map((r) => `${r.person.firstName} ${r.person.lastName}`).join(", ");
+  const doc = await fileWohnungsgeber(user.tenantId, res);
+  const letter = await storeLetter(user, {
+    personId: first.id, propertyId: property.id,
+    // alle Mieter in der Namenszeile, solange sie ins Anschriftfeld passt
+    recipient: [names.length <= 50 ? names : address[0], ...address.slice(1)].slice(0, MAX_RECIPIENT_LINES),
+    subject: "Ihre Wohnungsgeberbestätigung",
+    body:
+      `Guten Tag ${names},\n\nanbei erhalten Sie die Wohnungsgeberbestätigung für Ihre Wohnung ` +
+      `${property.street}, ${property.zip} ${property.city} (${lease.unit.label}). ` +
+      `Bitte legen Sie sie bei der Anmeldung beim Bürgeramt vor.\n\nMit freundlichen Grüßen\n${property.tenant.name}`,
+    ...(await placeAndDate(user.tenantId)), attachmentIds: [doc.id],
+  });
+  const out = await queueFromForm(user, letter.id, fd);
+  revalidatePath("/", "layout");
+  return out;
+}
+
 export async function createLetter(_p: ActionState, fd: FormData): Promise<ActionState> {
   const user = await requireWriter();
   const recipient = str(fd.get("recipient")).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
@@ -51,32 +153,14 @@ export async function createLetter(_p: ActionState, fd: FormData): Promise<Actio
   if (personId && !(await prisma.person.findFirst({ where: { id: personId, tenantId: user.tenantId }, select: { id: true } }))) personId = null;
 
   const attachments = await letterAttachmentDocs(user.tenantId, fd.getAll("documentIds").map(String));
-  const pdf = await buildLetterPdf(user.tenantId, {
-    recipient, subject, body, place: str(fd.get("place")), date: str(fd.get("date")),
+  const letter = await storeLetter(user, {
+    personId, recipient, subject, body, place: str(fd.get("place")), date: str(fd.get("date")), attachmentIds: attachments.map((a) => a.id),
   });
-  const storageKey = await saveFile(pdf, ".pdf");
-  const doc = await prisma.document.create({
-    data: {
-      tenantId: user.tenantId, personId, category: "BRIEF", mime: "application/pdf", size: pdf.length, storageKey,
-      name: `Brief ${subject.replace(/[\\/:*?"<>|]/g, "-").slice(0, 80)}.pdf`,
-    },
-  });
-  const letter = await prisma.letter.create({
-    data: { tenantId: user.tenantId, personId, recipient: recipient.join("\n"), subject, body, documentId: doc.id, sentById: user.id, statusEvents: { create: { status: "ENTWURF" } },
-      attachments: { connect: attachments.map((a) => ({ id: a.id })) },
-    },
-  });
-  await audit(user, "CREATE", "Letter", letter.id, subject);
 
-  // Mit Versandweg: über den Postausgang einplanen (#79), sonst nur PDF
-  const provider = providerOf(fd);
-  const notice = provider ? await queueLetter(user.tenantId, letter.id, provider, optionsOf(fd, provider), user) : undefined;
+  const out = await queueFromForm(user, letter.id, fd);
   revalidatePath("/", "layout");
-  return notice === "failed" ? { error: await letterError(letter.id) } : { ok: true, notice };
+  return out;
 }
-
-const letterError = async (id: string) =>
-  (await prisma.letter.findUnique({ where: { id }, select: { statusText: true } }))?.statusText ?? "Versand fehlgeschlagen";
 
 /** Bereits erstellten Brief (Entwurf oder fehlgeschlagen) versenden. */
 export async function sendLetter(_p: ActionState, fd: FormData): Promise<ActionState> {

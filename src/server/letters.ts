@@ -173,10 +173,10 @@ export async function refreshLetterStatus(tenantId: string) {
  * Empfänger für „Neuer Brief“: alle Kontakte mit Anschrift. Hat ein Kontakt keine
  * eigene Anschrift, aber einen laufenden Mietvertrag, gilt die Adresse des Objekts.
  */
-export async function letterRecipients(tenantId: string) {
+export async function letterRecipients(tenantId: string, personIds?: string[]) {
   const now = new Date();
   const persons = await prisma.person.findMany({
-    where: { tenantId },
+    where: { tenantId, ...(personIds ? { id: { in: personIds } } : {}) },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     select: {
       id: true, firstName: true, lastName: true, address: true,

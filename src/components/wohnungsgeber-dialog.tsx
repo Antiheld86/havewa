@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { FileText, Send, Check, TriangleAlert } from "lucide-react";
+import { FileText, Send, Check, TriangleAlert, Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,8 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SignaturePad } from "@/components/signature-pad";
 import { sendWohnungsgeber } from "@/server/actions/email";
+import { letterWohnungsgeber } from "@/server/actions/letters";
+import { ShippingFields, type ProviderInfo } from "@/components/letter-dialogs";
 import type { ActionState } from "@/lib/schemas";
 import { outboxToast } from "@/components/outbox-toast";
+
+const noop = () => {};
 
 // Wohnungsgeberbestätigung (#41/#55): Wohnungsgeber prüfen, Ort/Datum (vorausgefüllt),
 // digital unterschreiben, dann als PDF öffnen oder direkt per E-Mail an die Mieter senden.
@@ -21,6 +25,7 @@ export function WohnungsgeberDialog({
   place,
   today,
   renterEmails,
+  providers = [],
 }: {
   leaseId: string;
   name: string;
@@ -28,17 +33,26 @@ export function WohnungsgeberDialog({
   place: string;
   today: string;
   renterEmails: string[];
+  providers?: ProviderInfo[]; // eingerichtete Briefanbieter → „Per Brief senden“ (#78)
 }) {
   const t = useTranslations("leases");
   const tRoot = useTranslations();
   const [open, setOpen] = useState(false);
   const [state, sendAction, sending] = useActionState<ActionState, FormData>(sendWohnungsgeber, {});
+  const [letterState, letterAction, posting] = useActionState<ActionState, FormData>(letterWohnungsgeber, {});
   useEffect(() => {
     if (state.ok) {
       setOpen(false);
       outboxToast(tRoot, state.notice, t("wgSent"));
     }
   }, [state]);
+  useEffect(() => {
+    if (letterState.ok) {
+      setOpen(false);
+      outboxToast(tRoot, letterState.notice, tRoot("letters.sent"));
+    }
+  }, [letterState]);
+  const error = state.error ?? letterState.error;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -78,9 +92,20 @@ export function WohnungsgeberDialog({
             <Label>{t("wgSignature")}</Label>
             <SignaturePad name="signature" />
           </div>
-          {state.error && (
+          {providers.length > 0 && (
+            <details className="text-sm">
+              <summary className="cursor-pointer select-none font-medium">{t("wgByLetter")}</summary>
+              <div className="mt-2 space-y-2">
+                <ShippingFields providers={providers} allowNone={false} onProvider={noop} />
+                <Button type="submit" variant="outline" className="w-full" formAction={letterAction} disabled={posting}>
+                  <Mail className="size-4" /> {posting ? t("wgSending") : t("wgSendLetter")}
+                </Button>
+              </div>
+            </details>
+          )}
+          {error && (
             <p className="flex items-center gap-1 text-sm text-destructive">
-              <TriangleAlert className="size-4" /> {state.error}
+              <TriangleAlert className="size-4" /> {error}
             </p>
           )}
           <div className="grid gap-2 sm:grid-cols-2">

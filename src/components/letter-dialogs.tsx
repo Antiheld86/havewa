@@ -51,7 +51,7 @@ function useDone(state: ActionState, onOk: () => void) {
 }
 
 /** Versandweg und -optionen; ohne eingerichteten Anbieter nur „PDF erstellen“. */
-function ShippingFields({ providers, allowNone, onProvider }: { providers: ProviderInfo[]; allowNone: boolean; onProvider: (p: string) => void }) {
+export function ShippingFields({ providers, allowNone, onProvider }: { providers: ProviderInfo[]; allowNone: boolean; onProvider: (p: string) => void }) {
   const t = useTranslations("letters");
   const [provider, setProvider] = useState(allowNone ? "" : (providers[0]?.id ?? ""));
   useEffect(() => onProvider(provider), [provider, onProvider]);

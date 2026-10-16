@@ -31,7 +31,7 @@ export async function dunningFor(tenantId: string, chargeId: string) {
   const fee = dun ? Number(dun.fee) : 0;
   const property = lease.unit.building.property;
   const renter = lease.renters[0]?.person ?? null;
-  const doc = dunningDocument({
+  const input = {
     level: dun?.level ?? 1,
     propertyName: property.name,
     unitLabel: lease.unit.label,
@@ -43,6 +43,7 @@ export async function dunningFor(tenantId: string, chargeId: string) {
     dueDate: charge.dueDate,
     open,
     fee,
-  });
-  return { charge, lease, property, renter, doc, total: open + fee, pdf: () => simplePdf(doc.title, doc.lines) };
+  };
+  const doc = dunningDocument(input);
+  return { charge, lease, property, renter, input, doc, total: open + fee, pdf: () => simplePdf(doc.title, doc.lines) };
 }

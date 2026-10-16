@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, Printer, Mail } from "lucide-react";
+import { Bell, Printer, Mail, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { outboxToast } from "@/components/outbox-toast";
 import { createDunning, emailDunning } from "@/server/actions/finances";
+import { letterDunning } from "@/server/actions/letters";
+import { ShippingFields, type ProviderInfo } from "@/components/letter-dialogs";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +21,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+const noop = () => {};
+
 // Bündelt Erstellen + Drucken + Versenden einer Mahnung in einem Popup (#28).
 // Die Mahnung wird beim ersten Aktions-Klick erstellt (14-Tage-Sperre greift),
 // weitere Aktionen im selben Dialog nutzen dieselbe Mahnung (kein Doppel-Level).
@@ -26,10 +30,12 @@ export function DunningDialog({
   chargeId,
   renterName,
   hasEmail,
+  providers = [],
 }: {
   chargeId: string;
   renterName: string;
   hasEmail: boolean;
+  providers?: ProviderInfo[]; // eingerichtete Briefanbieter → „Per Brief senden“ (#78)
 }) {
   const t = useTranslations("finances");
   const tRoot = useTranslations();
@@ -37,6 +43,7 @@ export function DunningDialog({
   const [open, setOpen] = useState(false);
   const [created, setCreated] = useState(false);
   const [pending, start] = useTransition();
+  const shipping = useRef<HTMLFormElement>(null);
 
   function form() {
     const fd = new FormData();
@@ -86,6 +93,21 @@ export function DunningDialog({
       router.refresh();
     });
 
+  const doLetter = () =>
+    start(async () => {
+      if (!(await ensureCreated())) return;
+      const fd = shipping.current ? new FormData(shipping.current) : new FormData();
+      fd.set("chargeId", chargeId);
+      const res = await letterDunning({}, fd);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      outboxToast(tRoot, res.notice, tRoot("letters.sent"));
+      onOpenChange(false);
+      router.refresh();
+    });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger
@@ -98,6 +120,11 @@ export function DunningDialog({
           <DialogTitle>{t("dunTitle")}</DialogTitle>
           <DialogDescription>{t("dunConfirm", { name: renterName || "—" })}</DialogDescription>
         </DialogHeader>
+        {providers.length > 0 && (
+          <form ref={shipping} onSubmit={(e) => e.preventDefault()}>
+            <ShippingFields providers={providers} allowNone={false} onProvider={noop} />
+          </form>
+        )}
         <DialogFooter>
           <DialogClose render={<Button variant="ghost" disabled={pending} />}>{t("dunCancel")}</DialogClose>
           <Button variant="outline" onClick={doPrint} disabled={pending}>
@@ -106,6 +133,11 @@ export function DunningDialog({
           <Button onClick={doEmail} disabled={pending || !hasEmail} title={hasEmail ? undefined : t("dunNoEmail")}>
             <Mail className="size-4" /> {t("dunEmail")}
           </Button>
+          {providers.length > 0 && (
+            <Button onClick={doLetter} disabled={pending}>
+              <Send className="size-4" /> {t("dunLetter")}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

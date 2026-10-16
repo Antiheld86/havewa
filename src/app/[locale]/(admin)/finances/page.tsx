@@ -29,6 +29,7 @@ import {
 } from "@/components/finance-dialogs";
 import { DeleteButton } from "@/components/delete-button";
 import { DunningDialog } from "@/components/dunning-dialog";
+import { configuredProviders } from "@/server/letters";
 import { PaymentEditDialog } from "@/components/payment-dialog-edit";
 import { summarizeTransactions, txnWhere, type TxnFilter } from "@/lib/transactions";
 import { deleteCharge, deleteAccount, deleteMandate, deletePayment, seedDefaultAccounts } from "@/server/actions/finances";
@@ -60,6 +61,7 @@ export default async function FinancesPage({
   const df = await getDateLocale(locale);
   const tenantId = user.tenantId;
   const payWhere = { tenantId, ...txnWhere(txnFilter) };
+  const letterProviders = await configuredProviders(tenantId); // Mahnung per Brief (#78)
 
   const [charges, accounts, mandates, leases, persons, bankConnector, bankLinks, payments, paymentCount, paymentSums, allDocuments] = await Promise.all([
     prisma.charge.findMany({
@@ -293,6 +295,7 @@ export default async function FinancesPage({
                                 : ""
                             }
                             hasEmail={!!c.lease?.renters[0]?.person.email}
+                            providers={letterProviders}
                           />
                         )}
                         {dunLevel > 0 && (

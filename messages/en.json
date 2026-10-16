@@ -444,7 +444,9 @@
     "wgSending": "Sending…",
     "wgSent": "Landlord confirmation sent to the tenants",
     "wgSendTo": "Sent to: {to}",
-    "wgNoEmail": "No tenant email address on record, PDF only."
+    "wgNoEmail": "No tenant email address on record, PDF only.",
+    "wgByLetter": "Send by post",
+    "wgSendLetter": "Send by post"
   },
   "rentComponent": {
     "title": "Rent components",
@@ -800,7 +802,8 @@
     "tab_payments": "Transactions",
     "tab_accounts": "Accounts",
     "tab_mandates": "SEPA mandates",
-    "tab_io": "Import/Export"
+    "tab_io": "Import/Export",
+    "dunLetter": "Send by post"
   },
   "accountType": {
     "BANK": "Bank account",

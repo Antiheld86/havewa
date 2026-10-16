@@ -444,7 +444,9 @@
     "wgSending": "Sendet…",
     "wgSent": "Wohnungsgeberbestätigung an die Mieter gesendet",
     "wgSendTo": "Versand an: {to}",
-    "wgNoEmail": "Kein Mieter mit E-Mail-Adresse hinterlegt, nur PDF möglich."
+    "wgNoEmail": "Kein Mieter mit E-Mail-Adresse hinterlegt, nur PDF möglich.",
+    "wgByLetter": "Per Brief versenden",
+    "wgSendLetter": "Per Brief senden"
   },
   "rentComponent": {
     "title": "Miet-Bestandteile",
@@ -800,7 +802,8 @@
     "tab_payments": "Kontobewegungen",
     "tab_accounts": "Konten",
     "tab_mandates": "SEPA-Mandate",
-    "tab_io": "Import/Export"
+    "tab_io": "Import/Export",
+    "dunLetter": "Per Brief senden"
   },
   "accountType": {
     "BANK": "Bankkonto",
