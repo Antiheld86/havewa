@@ -2,8 +2,11 @@
 
 export const NOTIFY_KINDS = [
   "RENT_OVERDUE", // Miete nach Fälligkeit nicht (vollständig) bezahlt
-  "PAYMENTS", // neue Zahlungen (Ein- und Ausgang)
-  "LETTER_STATUS", // Briefstatus geändert
+  "PAYMENTS_IN", // neue Zahlungseingänge
+  "PAYMENTS_OUT", // neue Zahlungsausgänge
+  "LETTER_SENT", // Brief versendet
+  "LETTER_DELIVERED", // Brief zugestellt
+  "LETTER_FAILED", // Briefversand fehlgeschlagen
   "APPOINTMENT_DAY", // Terminerinnerung einen Tag vorher
   "APPOINTMENT_HOUR", // Terminerinnerung eine Stunde vorher
   "APPOINTMENT_PERSONS", // Erinnerung auch an die Teilnehmer des Termins

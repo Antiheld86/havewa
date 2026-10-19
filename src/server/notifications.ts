@@ -8,7 +8,8 @@ import { DAY_MS, HOUR_MS, digest, leadRange, type NotifyKind } from "@/lib/notif
 // aktivierter Art eine Sammelmail an die Verwalter senden (plus Glocke in der App).
 // Ein Cursor statt Merker je Datensatz: fällt ein Lauf aus, holt der nächste nach.
 
-const LETTER_EVENTS = ["VERSENDET", "ZUGESTELLT", "FEHLER"] as const;
+// Briefstatus je eigene Art schaltbar (#80)
+const LETTER_KIND = { VERSENDET: "LETTER_SENT", ZUGESTELLT: "LETTER_DELIVERED", FEHLER: "LETTER_FAILED" } as const;
 const LETTER_LABEL: Record<string, string> = { VERSENDET: "versendet", ZUGESTELLT: "zugestellt", FEHLER: "fehlgeschlagen" };
 // ponytail: Rückstände nur aus den letzten 30 Tagen, sonst schickt das Einschalten den ganzen Altbestand
 const OVERDUE_LOOKBACK_MS = 30 * DAY_MS;
@@ -45,35 +46,36 @@ export async function runNotifications(tenantId: string, kinds: NotifyKind[], pr
     }
   }
 
-  if (on("PAYMENTS")) {
-    const payments = await prisma.payment.findMany({ where: { tenantId, createdAt: range }, orderBy: { date: "asc" } });
-    if (payments.length) {
-      const sum = (d: string) => payments.filter((p) => p.direction === d).reduce((a, p) => a + Number(p.amount), 0);
-      const items = payments.map(
-        (p) => `${date(p.date)} ${p.direction === "EINGANG" ? "Eingang" : "Ausgang"} ${money(Number(p.amount))}${p.counterparty ? ` · ${p.counterparty}` : ""}${p.reference ? ` · ${p.reference}` : ""}`,
-      );
-      await notifyManagers(tenantId, {
-        title: payments.length === 1 ? "Neue Zahlung" : `${payments.length} neue Zahlungen`,
-        body: digest(`Eingang ${money(sum("EINGANG"))}, Ausgang ${money(sum("AUSGANG"))}`, items),
-        link: "/finances",
-      }, "PAYMENTS");
-    }
+  // Ein- und Ausgänge getrennt schaltbar (#80), je Richtung eine Sammelmail
+  for (const [kind, direction, one, many] of [["PAYMENTS_IN", "EINGANG", "Zahlungseingang", "Zahlungseingänge"], ["PAYMENTS_OUT", "AUSGANG", "Zahlungsausgang", "Zahlungsausgänge"]] as const) {
+    if (!on(kind)) continue;
+    const payments = await prisma.payment.findMany({ where: { tenantId, direction, createdAt: range }, orderBy: { date: "asc" } });
+    if (!payments.length) continue;
+    const sum = payments.reduce((a, p) => a + Number(p.amount), 0);
+    const items = payments.map(
+      (p) => `${date(p.date)} ${money(Number(p.amount))}${p.counterparty ? ` · ${p.counterparty}` : ""}${p.reference ? ` · ${p.reference}` : ""}`,
+    );
+    await notifyManagers(tenantId, {
+      title: payments.length === 1 ? `Neuer ${one}` : `${payments.length} neue ${many}`,
+      body: digest(`Summe ${money(sum)}`, items),
+      link: "/finances",
+    }, kind);
   }
 
-  if (on("LETTER_STATUS")) {
+  for (const [status, kind] of Object.entries(LETTER_KIND)) {
+    if (!on(kind)) continue;
     const events = await prisma.letterStatusEvent.findMany({
-      where: { at: range, status: { in: [...LETTER_EVENTS] }, letter: { tenantId } },
+      where: { at: range, status: status as keyof typeof LETTER_KIND, letter: { tenantId } },
       include: { letter: { select: { subject: true, recipient: true } } },
       orderBy: { at: "asc" },
     });
-    if (events.length) {
-      const items = events.map((e) => `${e.letter.subject} an ${e.letter.recipient.split("\n")[0]}: ${LETTER_LABEL[e.status]}${e.statusText ? ` (${e.statusText})` : ""}`);
-      await notifyManagers(tenantId, {
-        title: events.length === 1 ? `Brief ${LETTER_LABEL[events[0].status]}` : `Briefstatus: ${events.length} Änderungen`,
-        body: digest("Neuer Versandstatus:", items),
-        link: "/communication?box=letters",
-      }, "LETTER_STATUS");
-    }
+    if (!events.length) continue;
+    const items = events.map((e) => `${e.letter.subject} an ${e.letter.recipient.split("\n")[0]}${e.statusText ? ` (${e.statusText})` : ""}`);
+    await notifyManagers(tenantId, {
+      title: events.length === 1 ? `Brief ${LETTER_LABEL[status]}` : `${events.length} Briefe ${LETTER_LABEL[status]}`,
+      body: digest(`Brief ${LETTER_LABEL[status]}:`, items),
+      link: "/communication?box=letters",
+    }, kind);
   }
 
   if (on("INBOUND_EMAIL")) {

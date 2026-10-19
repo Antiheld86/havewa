@@ -24,7 +24,8 @@ describe("notify-kinds (#77)", () => {
   });
 
   it("kennt nur definierte Arten", () => {
-    expect(isNotifyKind("PAYMENTS")).toBe(true);
+    expect(isNotifyKind("PAYMENTS_IN")).toBe(true);
+    expect(isNotifyKind("PAYMENTS")).toBe(false); // seit #80 aufgeteilt
     expect(isNotifyKind("FOO")).toBe(false);
   });
 });
