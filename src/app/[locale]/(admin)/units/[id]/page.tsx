@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { MeterDialog, ReadingDialog } from "@/components/entity-dialogs";
+import { MeterDialog, ReadingDialog, MeterReplaceDialog } from "@/components/entity-dialogs";
 import { LeaseDialog } from "@/components/lease-dialogs";
 import { DeleteButton } from "@/components/delete-button";
 import { deleteMeter, deleteReading } from "@/server/actions/objects";
@@ -43,7 +43,7 @@ export default async function UnitDetailPage({
       },
       meters: {
         orderBy: { createdAt: "asc" },
-        include: { readings: { orderBy: { date: "desc" } } },
+        include: { readings: { orderBy: { date: "desc" } }, replacedBy: { select: { serialNo: true } } },
       },
     },
   });
@@ -153,14 +153,21 @@ export default async function UnitDetailPage({
             <p className="text-sm text-muted-foreground">{t("unitDetail.noMeters")}</p>
           ) : (
             unit.meters.map((m) => (
-              <div key={m.id} className="rounded-lg border">
+              <div key={m.id} className={`rounded-lg border ${m.removedAt ? "opacity-70" : ""}`}>
                 <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">{t(`meterType.${m.type}`)}</Badge>
                     <span className="text-sm font-medium">{m.serialNo}</span>
+                    {m.removedAt && (
+                      <span className="text-xs text-muted-foreground">
+                        {t("unitDetail.removedAt", { date: date(m.removedAt, df) })}
+                        {m.replacedBy ? ` · ${t("unitDetail.replacedBy", { serialNo: m.replacedBy.serialNo })}` : ""}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
-                    <ReadingDialog meterId={m.id} />
+                    {!m.removedAt && <ReadingDialog meterId={m.id} />}
+                    {!m.removedAt && <MeterReplaceDialog meterId={m.id} serialNo={m.serialNo} />}
                     <DeleteButton action={deleteMeter} id={m.id} />
                   </div>
                 </div>

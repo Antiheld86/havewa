@@ -127,6 +127,14 @@ export const readingSchema = z.object({
   value: z.coerce.number().nonnegative(),
 });
 
+export const meterReplaceSchema = z.object({
+  meterId: z.string().min(1),
+  date: z.coerce.date(),
+  oldValue: z.coerce.number().nonnegative(),
+  serialNo: z.string().trim().min(1),
+  newValue: z.coerce.number().nonnegative().default(0),
+});
+
 export const leaseCreateSchema = z.object({
   unitId: z.string().min(1),
   // Einzelperson für die REST-API (api-write); das Web-Formular nutzt personIds

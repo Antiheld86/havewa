@@ -51,6 +51,7 @@
     "dashboard": "Dashboard",
     "properties": "Objekte",
     "units": "Einheiten",
+    "meters": "Zähler",
     "persons": "Personen",
     "leases": "Mietverträge",
     "leasing": "Vermarktung",
@@ -334,12 +335,32 @@
     "tenant": "Mieter",
     "assignTenant": "Mieter zuordnen"
   },
+  "meters": {
+    "title": "Zähler",
+    "subtitle": "Übersicht aller Zähler mit letztem Stand und Verbrauch",
+    "empty": "Keine Zähler vorhanden. Zähler werden auf der Seite der jeweiligen Einheit angelegt.",
+    "lastReading": "Letzter Stand",
+    "consumption": "Verbrauch",
+    "allProperties": "Alle Objekte",
+    "allTypes": "Alle Zählertypen",
+    "status": "Status",
+    "statusActive": "Nur aktive",
+    "statusAll": "Alle (inkl. ausgebaut)"
+  },
   "unitDetail": {
     "meters": "Zähler",
     "newMeter": "Neuer Zähler",
     "noMeters": "Keine Zähler erfasst.",
     "readings": "Zählerstände",
     "newReading": "Neuer Stand",
+    "replace": "Tauschen",
+    "replaceTitle": "Zähler tauschen",
+    "replaceDate": "Tauschdatum",
+    "oldValue": "Endstand alter Zähler",
+    "newSerialNo": "Neue Zählernummer",
+    "newValue": "Anfangsstand neuer Zähler",
+    "removedAt": "Ausgebaut am {date}",
+    "replacedBy": "ersetzt durch {serialNo}",
     "noReadings": "Keine Stände erfasst."
   },
   "persons": {

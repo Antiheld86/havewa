@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { prisma } from "@/lib/prisma";
 import { requireWriter } from "@/lib/rbac";
 import { audit } from "@/lib/audit";
+import { replaceMeterTx } from "@/server/meters";
 import { pickCustom } from "@/lib/custom";
 import {
   propertySchema,
@@ -14,6 +15,7 @@ import {
   unitUpdateSchema,
   meterSchema,
   readingSchema,
+  meterReplaceSchema,
   type ActionState,
 } from "@/lib/schemas";
 
@@ -174,10 +176,21 @@ export async function createReading(_p: ActionState, fd: FormData): Promise<Acti
   if (!r.success) return fail(r.error.issues[0]?.message);
   const m = await prisma.meter.findFirst({
     where: { id: r.data.meterId, tenantId: user.tenantId },
-    select: { id: true },
+    select: { id: true, removedAt: true },
   });
   if (!m) return fail("Zähler nicht gefunden");
+  if (m.removedAt && r.data.date > m.removedAt) return fail("Zähler ist ausgebaut");
   await prisma.meterReading.create({ data: { ...r.data, tenantId: user.tenantId } });
+  return done();
+}
+
+export async function replaceMeter(_p: ActionState, fd: FormData): Promise<ActionState> {
+  const user = await requireWriter();
+  const r = meterReplaceSchema.safeParse(Object.fromEntries(fd));
+  if (!r.success) return fail(r.error.issues[0]?.message);
+  const res = await replaceMeterTx(user.tenantId, r.data);
+  if (!res.ok) return fail(res.error);
+  await audit(user, "UPDATE", "Meter", res.oldId, `Tausch → ${r.data.serialNo}`);
   return done();
 }
 

@@ -3,6 +3,8 @@ import { roleAllows, WRITE_ROLES } from "@/lib/rbac";
 import type { ApiPrincipal } from "@/lib/api-auth";
 import { ApiWriteError } from "@/lib/api-write";
 import { saveFile } from "@/lib/storage";
+import { meterReplaceSchema } from "@/lib/schemas";
+import { replaceMeterTx } from "@/server/meters";
 import { deliverEmail } from "@/server/outbox";
 import { parseCamt053 } from "@/lib/adapters/bankImport";
 import { isEInvoice, parseEInvoice } from "@/lib/adapters/erechnung";
@@ -167,6 +169,25 @@ export const OPERATIONS: Record<string, Op> = {
       const res = await prisma.ticket.updateMany({ where: { id, tenantId: p.tenantId }, data: { timeSpentMin: { increment: minutes } } });
       if (res.count === 0) throw new ApiWriteError("Ticket nicht gefunden", 404);
       return { id, added: minutes };
+    },
+  },
+
+  replace_meter: {
+    description: "Zählertausch: Endstand am alten Zähler erfassen, neuen Zähler (gleiche Einheit/Art) mit Anfangsstand anlegen, alten als ausgebaut markieren.",
+    params: {
+      meterId: "ID des alten Zählers",
+      date: "Tauschdatum YYYY-MM-DD",
+      oldValue: "Endstand des alten Zählers",
+      serialNo: "Zählernummer des neuen Zählers",
+      newValue: "Anfangsstand des neuen Zählers (Standard 0)",
+    },
+    required: ["meterId", "date", "oldValue", "serialNo"],
+    run: async (p, a) => {
+      const r = meterReplaceSchema.safeParse(a);
+      if (!r.success) throw new ApiWriteError(r.error.issues[0]?.message ?? "Ungültige Eingabe", 400);
+      const res = await replaceMeterTx(p.tenantId, r.data);
+      if (!res.ok) throw new ApiWriteError(res.error, res.status);
+      return { oldId: res.oldId, newId: res.newId };
     },
   },
 

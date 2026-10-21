@@ -2,18 +2,25 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { buildStatement, monthsActiveInYear, type UnitInput, type CostInput } from "@/lib/allocation/statement";
 import { extrapolateConsumption } from "@/lib/allocation/heating-degree-days";
+import { chainConsumption } from "@/lib/meters";
 import type { AllocationMethod } from "@/lib/allocation";
 
-/** Heiz-/Warmwasserverbrauch einer Einheit im Jahr aus den Zählerständen (Ablesedifferenz). */
-export function meterConsumption(meters: { readings: { value: unknown; date: Date }[] }[]): number {
-  return meters.reduce((sum, m) => {
-    if (m.readings.length < 2) return sum;
-    const vals = m.readings.map((r) => Number(r.value));
-    const measured = Math.max(...vals) - Math.min(...vals);
-    // HeizkostenV §9b: unterjährige Ableseperiode auf Jahreswert hochrechnen.
-    const dates = m.readings.map((r) => r.date).sort((a, b) => a.getTime() - b.getTime());
-    return sum + extrapolateConsumption(measured, dates[0], dates[dates.length - 1]);
-  }, 0);
+/**
+ * Heiz-/Warmwasserverbrauch einer Einheit im Jahr aus den Zählerständen (Ablesedifferenz).
+ * Getauschte Zähler (replacedById) werden als Kette gerechnet, siehe chainConsumption.
+ */
+export function meterConsumption(
+  meters: { id: string; replacedById: string | null; readings: { value: unknown; date: Date }[] }[],
+): number {
+  // HeizkostenV §9b: unterjährige Ableseperiode auf Jahreswert hochrechnen.
+  return chainConsumption(
+    meters.map((m) => ({
+      id: m.id,
+      replacedById: m.replacedById,
+      readings: m.readings.map((r) => ({ date: r.date, value: Number(r.value) })),
+    })),
+    extrapolateConsumption,
+  );
 }
 
 export interface StatementUnit {

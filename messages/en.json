@@ -51,6 +51,7 @@
     "dashboard": "Dashboard",
     "properties": "Properties",
     "units": "Units",
+    "meters": "Meters",
     "persons": "People",
     "leases": "Leases",
     "leasing": "Leasing",
@@ -334,12 +335,32 @@
     "tenant": "Tenant",
     "assignTenant": "Assign tenant"
   },
+  "meters": {
+    "title": "Meters",
+    "subtitle": "All meters with latest reading and consumption",
+    "empty": "No meters yet. Meters are created on the page of the respective unit.",
+    "lastReading": "Latest reading",
+    "consumption": "Consumption",
+    "allProperties": "All properties",
+    "allTypes": "All meter types",
+    "status": "Status",
+    "statusActive": "Active only",
+    "statusAll": "All (incl. removed)"
+  },
   "unitDetail": {
     "meters": "Meters",
     "newMeter": "New meter",
     "noMeters": "No meters recorded.",
     "readings": "Readings",
     "newReading": "New reading",
+    "replace": "Replace",
+    "replaceTitle": "Replace meter",
+    "replaceDate": "Replacement date",
+    "oldValue": "Final reading of old meter",
+    "newSerialNo": "New serial number",
+    "newValue": "Initial reading of new meter",
+    "removedAt": "Removed on {date}",
+    "replacedBy": "replaced by {serialNo}",
     "noReadings": "No readings recorded."
   },
   "persons": {

@@ -25,7 +25,7 @@ type Def = {
   update?: z.ZodTypeAny; // fehlt → nicht aktualisierbar
   relations?: Record<string, string>; // Feld → Delegate für Tenant-Prüfung
   custom?: boolean; // Json-Feld `custom` erlaubt
-  special?: "lease" | "resolution" | "agenda" | "user";
+  special?: "lease" | "resolution" | "agenda" | "user" | "reading";
   upsertBy?: string[]; // Felder für Upsert-Where (statt create)
 };
 
@@ -38,7 +38,7 @@ export const REGISTRY: Record<string, Def> = {
   building: { model: "building", create: S.buildingSchema, update: S.buildingSchema, relations: { propertyId: "property" } },
   unit: { model: "unit", create: S.unitSchema, update: S.unitSchema, relations: { buildingId: "building" }, custom: true },
   meter: { model: "meter", create: S.meterSchema, relations: { unitId: "unit" } },
-  reading: { model: "meterReading", create: S.readingSchema, relations: { meterId: "meter" } },
+  reading: { model: "meterReading", create: S.readingSchema, relations: { meterId: "meter" }, special: "reading" },
   person: { model: "person", create: S.personSchema, update: S.personSchema, custom: true },
   owner: { model: "owner", create: S.ownerSchema, relations: { personId: "person", unitId: "unit" } },
   lease: {
@@ -170,6 +170,14 @@ export async function apiCreate(p: ApiPrincipal, entity: string, body: Record<st
   if (def.special === "resolution") {
     const last = await db.resolution.findFirst({ where: { propertyId: data.propertyId, tenantId }, orderBy: { number: "desc" }, select: { number: true } });
     const row = await db.resolution.create({ data: { ...data, tenantId, number: (last?.number ?? 0) + 1 } });
+    return { id: row.id };
+  }
+
+  if (def.special === "reading") {
+    // Ausgebaute Zähler (Zählertausch) nehmen keine neuen Stände nach dem Ausbaudatum mehr an.
+    const meter = await db.meter.findFirst({ where: { id: data.meterId, tenantId }, select: { removedAt: true } });
+    if (meter?.removedAt && (data.date as Date) > meter.removedAt) throw new ApiWriteError("Zähler ist ausgebaut", 400);
+    const row = await db.meterReading.create({ data: { ...data, tenantId } });
     return { id: row.id };
   }
 

@@ -51,6 +51,7 @@
     "dashboard": "Painel",
     "properties": "Imóveis",
     "units": "Unidades",
+    "meters": "Medidores",
     "persons": "Pessoas",
     "leases": "Contratos de locação",
     "leasing": "Locações",
@@ -334,12 +335,32 @@
     "tenant": "Inquilino",
     "assignTenant": "Atribuir inquilino"
   },
+  "meters": {
+    "title": "Medidores",
+    "subtitle": "Todos os medidores com a última leitura e o consumo",
+    "empty": "Nenhum medidor. Os medidores são criados na página da respectiva unidade.",
+    "lastReading": "Última leitura",
+    "consumption": "Consumo",
+    "allProperties": "Todos os imóveis",
+    "allTypes": "Todos os tipos de medidor",
+    "status": "Status",
+    "statusActive": "Somente ativos",
+    "statusAll": "Todos (incl. removidos)"
+  },
   "unitDetail": {
     "meters": "Medidores",
     "newMeter": "Novo medidor",
     "noMeters": "Nenhum medidor registrado.",
     "readings": "Leituras",
     "newReading": "Nova leitura",
+    "replace": "Trocar",
+    "replaceTitle": "Trocar medidor",
+    "replaceDate": "Data da troca",
+    "oldValue": "Leitura final do medidor antigo",
+    "newSerialNo": "Novo número de série",
+    "newValue": "Leitura inicial do novo medidor",
+    "removedAt": "Removido em {date}",
+    "replacedBy": "substituído por {serialNo}",
     "noReadings": "Nenhuma leitura registrada."
   },
   "persons": {

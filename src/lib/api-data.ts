@@ -209,6 +209,7 @@ export async function listMeters(tenantId: string) {
     include: {
       unit: { include: { building: { include: { property: { select: { name: true } } } } } },
       readings: { orderBy: { date: "desc" }, take: 1 },
+      replacedBy: { select: { serialNo: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -216,6 +217,8 @@ export async function listMeters(tenantId: string) {
     id: m.id,
     type: m.type,
     serialNo: m.serialNo,
+    removedAt: m.removedAt ? day(m.removedAt) : null,
+    replacedBy: m.replacedBy?.serialNo ?? null,
     unit: m.unit.label,
     property: m.unit.building.property.name,
     lastReading: m.readings[0] ? { date: day(m.readings[0].date), value: num(m.readings[0].value) } : null,

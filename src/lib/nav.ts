@@ -22,6 +22,7 @@ import {
   ClipboardList,
   Handshake,
   Building,
+  Gauge,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,7 @@ export const navGroups: NavGroup[] = [
       { key: "nav.dashboard", href: "/dashboard", icon: LayoutDashboard },
       { key: "nav.properties", href: "/properties", icon: Building2 },
       { key: "nav.units", href: "/units", icon: DoorOpen },
+      { key: "nav.meters", href: "/meters", icon: Gauge },
       { key: "nav.persons", href: "/persons", icon: Users },
       { key: "nav.leases", href: "/leases", icon: FileSignature },
       { key: "nav.leasing", href: "/leasing", icon: Handshake },

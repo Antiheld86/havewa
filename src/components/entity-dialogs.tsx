@@ -1,4 +1,4 @@
-import { Plus, Pencil } from "lucide-react";
+import { Plus, Pencil, Replace } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { CrudDialog } from "@/components/crud-dialog";
@@ -12,6 +12,7 @@ import {
   updateUnit,
   createMeter,
   createReading,
+  replaceMeter,
 } from "@/server/actions/objects";
 import { createPerson, updatePerson } from "@/server/actions/persons";
 
@@ -366,6 +367,29 @@ export async function ReadingDialog({ meterId }: { meterId: string }) {
       <input type="hidden" name="meterId" value={meterId} />
       <TextField name="date" label={t("fields.date")} type="date" />
       <TextField name="value" label={t("fields.value")} type="number" step="0.001" />
+    </CrudDialog>
+  );
+}
+
+export async function MeterReplaceDialog({ meterId, serialNo }: { meterId: string; serialNo: string }) {
+  const t = await getTranslations();
+  return (
+    <CrudDialog
+      trigger={
+        <Button variant="outline" size="sm">
+          <Replace className="size-4" />
+          {t("unitDetail.replace")}
+        </Button>
+      }
+      title={`${t("unitDetail.replaceTitle")} (${serialNo})`}
+      action={replaceMeter}
+      submitLabel={t("unitDetail.replace")}
+    >
+      <input type="hidden" name="meterId" value={meterId} />
+      <TextField name="date" label={t("unitDetail.replaceDate")} type="date" />
+      <TextField name="oldValue" label={t("unitDetail.oldValue")} type="number" step="0.001" />
+      <TextField name="serialNo" label={t("unitDetail.newSerialNo")} />
+      <TextField name="newValue" label={t("unitDetail.newValue")} type="number" step="0.001" defaultValue={0} />
     </CrudDialog>
   );
 }

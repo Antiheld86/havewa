@@ -357,6 +357,11 @@ model Meter {
   readings  MeterReading[]
   createdAt DateTime       @default(now())
 
+  removedAt    DateTime? // Ausbaudatum; null = aktiv
+  replacedById String?   @unique // Nachfolger nach Zählertausch
+  replacedBy   Meter?    @relation("MeterReplacement", fields: [replacedById], references: [id], onDelete: SetNull)
+  replaces     Meter?    @relation("MeterReplacement")
+
   @@index([tenantId])
   @@index([unitId])
 }
